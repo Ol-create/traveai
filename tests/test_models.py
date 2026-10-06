@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from traveai.domain.delivery_status import DeliveryStatus, InvalidTransitionError
-from traveai.domain.enums import DropMethod, MissionStatus, PayloadCategory
+from traveai.domain.enums import CustodyAction, DropMethod, MissionStatus, PayloadCategory
 from traveai.models import Delivery, Event, Mission, Quote, Vehicle
 from traveai.models.base import utcnow
 from traveai.schemas.location import Location
@@ -74,6 +74,21 @@ def test_illegal_transition_leaves_delivery_unchanged(session, merchant):
         d.transition_to(DeliveryStatus.DELIVERED)
     assert d.status == DeliveryStatus.SCHEDULED
     assert d.events == []
+
+
+def test_chain_of_custody_log(session, merchant):
+    d = make_delivery(merchant)
+    session.add(d)
+    d.record_custody(CustodyAction.RECEIVED_FROM_MERCHANT, holder="hub:deep_ellum")
+    d.transition_to(DeliveryStatus.ASSIGNED)  # status events are not custody events
+    d.record_custody(CustodyAction.LOADED_ON_DRONE, holder="veh:TRV-103", lat=32.78, lng=-96.78)
+    session.commit()
+    session.expire_all()
+
+    log = session.get(Delivery, d.id).custody_log
+    assert [e.data["action"] for e in log] == ["received_from_merchant", "loaded_on_drone"]
+    assert log[1].data["holder"] == "veh:TRV-103"
+    assert all(e.type == "delivery.custody" for e in log)
 
 
 def test_recipient_pin_is_hashed(merchant):

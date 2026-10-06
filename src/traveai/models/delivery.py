@@ -6,7 +6,7 @@ from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from traveai.domain.delivery_status import DeliveryStatus, ensure_transition, event_type_for
-from traveai.domain.enums import Priority
+from traveai.domain.enums import CustodyAction, Priority
 from traveai.ids import new_id
 from traveai.models.base import Base, TimestampMixin, UTCDateTime, str_enum
 from traveai.models.drop_zone import DropZone
@@ -18,6 +18,7 @@ from traveai.models.quote import Quote
 from traveai.security import hash_secret
 
 _REASON_STATUSES = {DeliveryStatus.ABORTED, DeliveryStatus.FAILED, DeliveryStatus.CANCELED}
+CUSTODY_EVENT_TYPE = "delivery.custody"
 
 
 class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
@@ -97,3 +98,28 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
         )
         self.events.append(event)
         return event
+
+    def record_custody(
+        self,
+        action: CustodyAction,
+        *,
+        holder: str,
+        lat: float | None = None,
+        lng: float | None = None,
+        note: str | None = None,
+    ) -> Event:
+        """Log a hand-off of the physical package (who has it now, and where).
+
+        Required for medical payloads, so there is an audit trail from pharmacy to patient.
+        """
+        event = Event(
+            merchant_id=self.merchant_id,
+            type=CUSTODY_EVENT_TYPE,
+            data={"action": action.value, "holder": holder, "lat": lat, "lng": lng, "note": note},
+        )
+        self.events.append(event)
+        return event
+
+    @property
+    def custody_log(self) -> list[Event]:
+        return [e for e in self.events if e.type == CUSTODY_EVENT_TYPE]

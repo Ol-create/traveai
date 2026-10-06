@@ -8,12 +8,10 @@ from traveai.domain.enums import MissionStatus
 from traveai.ids import new_id
 from traveai.models.base import Base, TimestampMixin, UTCDateTime, str_enum
 from traveai.models.vehicle import Vehicle
+from traveai.rules.config import DEFAULT_CRUISE_ALTITUDE_FT
 
 if TYPE_CHECKING:
     from traveai.models.delivery import Delivery
-
-# FAA Part 107 ceiling is 400 ft above ground; cruise a bit below it.
-DEFAULT_CRUISE_ALTITUDE_FT = 300
 
 
 class Mission(TimestampMixin, Base):

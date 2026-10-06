@@ -45,6 +45,15 @@ class DropZoneKind(StrEnum):
     CURBSIDE = "curbside"
 
 
+class CustodyAction(StrEnum):
+    """Chain-of-custody steps for a physical package (required for medical payloads)."""
+
+    RECEIVED_FROM_MERCHANT = "received_from_merchant"
+    LOADED_ON_DRONE = "loaded_on_drone"
+    DELIVERED_TO_RECIPIENT = "delivered_to_recipient"
+    RETURNED_TO_MERCHANT = "returned_to_merchant"
+
+
 class MissionStatus(StrEnum):
     PLANNED = "planned"
     ACTIVE = "active"

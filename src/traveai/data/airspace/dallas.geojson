@@ -1,0 +1,95 @@
+{
+  "type": "FeatureCollection",
+  "name": "Dallas, TX - simulated airspace (demo data, NOT for real flight planning)",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "apt_dal",
+        "name": "Dallas Love Field (DAL)",
+        "kind": "airport",
+        "radius_m": 8047,
+        "laanc_ceilings": [
+          {"within_m": 3219, "ceiling_ft": 0},
+          {"within_m": 5633, "ceiling_ft": 100},
+          {"within_m": 8047, "ceiling_ft": 200}
+        ]
+      },
+      "geometry": {"type": "Point", "coordinates": [-96.8518, 32.8471]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "apt_dfw",
+        "name": "Dallas/Fort Worth International (DFW)",
+        "kind": "airport",
+        "radius_m": 8047,
+        "laanc_ceilings": [
+          {"within_m": 4828, "ceiling_ft": 0},
+          {"within_m": 8047, "ceiling_ft": 100}
+        ]
+      },
+      "geometry": {"type": "Point", "coordinates": [-97.0403, 32.8998]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "apt_rbd",
+        "name": "Dallas Executive Airport (RBD)",
+        "kind": "airport",
+        "radius_m": 8047,
+        "laanc_ceilings": [
+          {"within_m": 1609, "ceiling_ft": 0},
+          {"within_m": 4828, "ceiling_ft": 200},
+          {"within_m": 8047, "ceiling_ft": 400}
+        ]
+      },
+      "geometry": {"type": "Point", "coordinates": [-96.8682, 32.6809]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "std_cotton_bowl",
+        "name": "Cotton Bowl Stadium (Fair Park) - event TFR",
+        "kind": "stadium",
+        "radius_m": 5556,
+        "active_windows": [
+          ["2026-10-10T16:00:00Z", "2026-10-10T22:00:00Z"],
+          ["2026-10-17T23:00:00Z", "2026-10-18T05:00:00Z"]
+        ]
+      },
+      "geometry": {"type": "Point", "coordinates": [-96.7597, 32.7795]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "std_att",
+        "name": "AT&T Stadium (Arlington) - event TFR",
+        "kind": "stadium",
+        "radius_m": 5556,
+        "active_windows": [
+          ["2026-10-11T17:00:00Z", "2026-10-11T23:00:00Z"]
+        ]
+      },
+      "geometry": {"type": "Point", "coordinates": [-97.0945, 32.7473]}
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "rst_demo_west",
+        "name": "Demo restricted area (fictional)",
+        "kind": "restricted"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-96.9100, 32.7500],
+          [-96.8850, 32.7500],
+          [-96.8850, 32.7700],
+          [-96.9100, 32.7700],
+          [-96.9100, 32.7500]
+        ]]
+      }
+    }
+  ]
+}

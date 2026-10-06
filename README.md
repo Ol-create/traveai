@@ -56,6 +56,8 @@ src/traveai/
   api/           route modules
   domain/        enums and the delivery status state machine
   schemas/       validated value objects (Payload, Location)
+  rules/         US flight rules engine: airspace, LAANC mock, daylight, Part 107, payload rules
+  data/          bundled airspace GeoJSON
   models/        database tables: merchants, api_keys, vehicles, drop_zones,
                  quotes, deliveries, missions, events
 migrations/      Alembic migrations
@@ -83,3 +85,21 @@ Give up:       any non-final status -> failed
 ```
 
 Every status change records an `Event` (e.g. `delivery.airborne`), which will drive webhooks.
+
+## Flight rules (simulated US compliance)
+
+`traveai.rules.engine.evaluate(FlightRequest)` checks a proposed flight and returns **every**
+problem at once as machine-readable codes (e.g. `laanc_denied`, `food_delivery_too_slow`), plus
+requirements such as `recipient_pin` and the approved cruise altitude.
+
+| Area | Rule |
+|---|---|
+| Part 107 | Max 400 ft altitude, max 100 mph, payload within drone capacity, daylight or civil twilight only |
+| No-fly zones | Restricted areas always; stadium TFRs during events (including ones starting mid-flight) |
+| Airports | Mock LAANC: approved at the grid ceiling (e.g. 100 ft near Love Field), denied if under 100 ft |
+| Medical | Temperature-controlled drone for cold-chain items, chain-of-custody log, recipient PIN for prescriptions, only medical may use `urgent` priority |
+| Food | Max 30 min flight so it arrives hot |
+
+Airspace data is in `src/traveai/data/airspace/dallas.geojson`. It is **demo data, not for real
+flight planning**: airport positions are real, but LAANC ceilings, stadium event dates and the
+restricted area are made up.
