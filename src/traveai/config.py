@@ -10,14 +10,15 @@ class Settings(BaseSettings):
 
     env: str = "development"
     debug: bool = False
-    # Comma-separated "key:merchant_id" pairs. Temporary until merchants move to the DB.
-    api_keys: str = ""
+    database_url: str = "sqlite:///./traveai.db"
+    # Comma-separated "key:merchant_id" pairs that `python -m traveai.seed` stores in the DB.
+    seed_api_keys: str = ""
 
     @property
-    def api_key_map(self) -> dict[str, str]:
-        """Parse api_keys into {api_key: merchant_id}."""
+    def seed_api_key_map(self) -> dict[str, str]:
+        """Parse seed_api_keys into {api_key: merchant_id}."""
         result: dict[str, str] = {}
-        for pair in self.api_keys.split(","):
+        for pair in self.seed_api_keys.split(","):
             pair = pair.strip()
             if not pair:
                 continue
