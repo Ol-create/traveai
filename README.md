@@ -143,6 +143,30 @@ curl -X POST http://127.0.0.1:8000/v1/webhook_endpoints \
 
 Set `TRAVEAI_WEBHOOKS_ENABLED=true` to run the sender inside the API server.
 
+## Ops dashboard
+
+Open http://127.0.0.1:8000/ (redirects to `/dashboard/`) and paste a test key from
+`.env.example`. Run the server with the simulator on to see drones move:
+
+```bash
+TRAVEAI_SIM_ENABLED=true TRAVEAI_SIM_SPEED=5 uvicorn traveai.main:app --reload
+```
+
+- **Map:** no-fly zones (red; dashed when an event TFR is inactive), airport zones with their
+  LAANC altitude rings, hubs, drop zones, every drone live (colored by status; yours are
+  ringed), and each of your deliveries' route (flown part gray, remaining dashed).
+- **New test delivery:** pick a preset route or click the map, choose a payload (burrito, hot
+  pizza, insulin, lab sample, or a too-heavy box to see a rejection), get a quote, book it.
+- **Your deliveries:** live status and ETA, recipient PIN, and buttons to cancel, inject a
+  failure, release the package with the PIN when the drone is hovering, and show the timeline.
+- **Fleet:** battery and status of every drone.
+
+The page uses the same public API (`/v1/map/static`, `/v1/map/live` plus the delivery
+endpoints) with your key, which it remembers in this browser. Use test keys only.
+
+Tip: at high `TRAVEAI_SIM_SPEED` the 2-minute PIN hover passes quickly (8 s at 15x); the
+dashboard alerts you when a drone starts waiting.
+
 ## Test and lint
 
 ```bash

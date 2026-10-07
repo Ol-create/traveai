@@ -1,14 +1,28 @@
 import asyncio
 import contextlib
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from traveai import __version__
-from traveai.api import deliveries, health, merchants, quotes, testing, tracking, webhooks
+from traveai.api import (
+    deliveries,
+    health,
+    map,
+    merchants,
+    quotes,
+    testing,
+    tracking,
+    webhooks,
+)
 from traveai.config import get_settings
 from traveai.sim.runner import run_forever as run_simulator
 from traveai.webhooks.runner import run_forever as run_webhooks
+
+DASHBOARD_DIR = Path(__file__).parent / "dashboard"
 
 
 def create_app() -> FastAPI:
@@ -40,6 +54,15 @@ def create_app() -> FastAPI:
     app.include_router(deliveries.router)
     app.include_router(tracking.router)
     app.include_router(webhooks.router)
+    app.include_router(map.router)
+
+    # Ops dashboard: a static page that calls the API above with the user's key.
+    app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        return RedirectResponse("/dashboard/")
+
     app.include_router(testing.router)
     return app
 

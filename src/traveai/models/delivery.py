@@ -3,6 +3,7 @@ from typing import Any
 
 from sqlalchemy import JSON, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm.attributes import flag_modified
 
 from traveai.domain.delivery_status import DeliveryStatus, ensure_transition, event_type_for
 from traveai.domain.enums import CustodyAction, FailureKind, Priority
@@ -99,6 +100,10 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
         previous = self.status
         ensure_transition(previous, target)
         self.status = target
+        self.updated_at = at or utcnow()  # same clock as the event below
+        # Even if the value is unchanged, keep it: otherwise the column's automatic
+        # "updated now" (wall clock) would replace it on save.
+        flag_modified(self, "updated_at")
         if target in _REASON_STATUSES:
             self.failure_reason = reason
         event = Event(

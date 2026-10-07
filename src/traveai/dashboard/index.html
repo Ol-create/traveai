@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraveAI Ops</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%232563eb'/><path d='M9 17l5 4 9-10' stroke='white' stroke-width='3' fill='none'/></svg>">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <strong>TraveAI</strong><span class="muted">Dallas ops</span>
+    </div>
+    <form id="key-form" class="key-form" autocomplete="off">
+      <label for="api-key" class="sr-only">API key</label>
+      <input id="api-key" type="password" placeholder="Paste an sk_test_ key" spellcheck="false">
+      <button type="submit">Connect</button>
+    </form>
+    <div id="conn" class="pill pill-off">Not connected</div>
+  </header>
+
+  <main class="layout">
+    <section class="map-wrap">
+      <div id="map" aria-label="Live map"></div>
+      <div id="pick-hint" class="pick-hint" hidden></div>
+      <div class="legend" aria-label="Legend">
+        <span><i class="sw sw-nofly"></i>No-fly</span>
+        <span><i class="sw sw-inactive"></i>Inactive TFR</span>
+        <span><i class="sw sw-airport"></i>Airport (LAANC)</span>
+        <span><i class="dot st-in_flight"></i>Flying</span>
+        <span><i class="dot st-returning"></i>Returning</span>
+        <span><i class="dot st-charging"></i>Charging</span>
+        <span><i class="dot st-idle"></i>Idle</span>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card" id="new-delivery">
+        <h2>New test delivery</h2>
+        <form id="quote-form">
+          <label>Route
+            <select id="route-preset">
+              <option value="de-lw">Deep Ellum → Lakewood (4.3 km)</option>
+              <option value="md-up">Medical District → Uptown (near Love Field)</option>
+              <option value="ba-dh">Bishop Arts → East Dallas helipad</option>
+              <option value="w-e">West → East, around restricted area</option>
+              <option value="custom">Pick on map…</option>
+            </select>
+          </label>
+          <div class="pick-row">
+            <button type="button" class="ghost" data-pick="pickup">Set pickup</button>
+            <button type="button" class="ghost" data-pick="dropoff">Set drop-off</button>
+          </div>
+          <p id="points" class="muted small"></p>
+          <div class="row">
+            <label>Payload
+              <select id="payload-preset">
+                <option value="burrito">Burrito (food, 1.2 kg)</option>
+                <option value="pizza">Hot pizza (food, 2.0 kg, heated)</option>
+                <option value="insulin">Insulin (Rx, cold chain)</option>
+                <option value="lab">Lab sample (medical, cold)</option>
+                <option value="heavy">Heavy box (3 kg, too heavy)</option>
+              </select>
+            </label>
+            <label>Priority
+              <select id="priority">
+                <option value="standard">Standard</option>
+                <option value="express">Express</option>
+                <option value="urgent">Urgent (medical)</option>
+              </select>
+            </label>
+          </div>
+          <label>Your order # <span class="muted">(optional)</span>
+            <input id="external-ref" maxlength="64" placeholder="e.g. ORD-1042">
+          </label>
+          <div class="actions">
+            <button type="submit">Get quote</button>
+            <button type="button" id="book-btn" disabled>Book</button>
+          </div>
+        </form>
+        <div id="quote-result" class="quote" hidden></div>
+      </section>
+
+      <section class="card">
+        <h2>Your deliveries <span id="delivery-count" class="muted"></span></h2>
+        <ul id="deliveries" class="list"></ul>
+        <p id="no-deliveries" class="muted small">None yet. Book one above.</p>
+      </section>
+
+      <section class="card">
+        <h2>Fleet</h2>
+        <ul id="fleet" class="list fleet"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>

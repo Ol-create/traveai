@@ -108,7 +108,7 @@ def book_delivery(
     return delivery, pin
 
 
-def cancel_delivery(delivery: Delivery, reason: str | None) -> None:
+def cancel_delivery(delivery: Delivery, reason: str | None, at: datetime | None = None) -> None:
     if not can_transition(delivery.status, DeliveryStatus.CANCELED):
         raise ApiError(
             status.HTTP_409_CONFLICT,
@@ -116,7 +116,7 @@ def cancel_delivery(delivery: Delivery, reason: str | None) -> None:
             f"A delivery that is '{delivery.status}' can't be canceled"
             + (" (in the air: it will be aborted instead)" if _in_air(delivery) else ""),
         )
-    delivery.transition_to(DeliveryStatus.CANCELED, reason=reason or "canceled_by_merchant")
+    delivery.transition_to(DeliveryStatus.CANCELED, reason=reason or "canceled_by_merchant", at=at)
 
 
 def _in_air(delivery: Delivery) -> bool:

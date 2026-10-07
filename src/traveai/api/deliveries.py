@@ -129,11 +129,15 @@ def events(delivery_id: str, auth: CurrentAuth, session: SessionDep) -> EventLis
 
 @router.post("/{delivery_id}/cancel", response_model=DeliveryOut)
 def cancel(
-    delivery_id: str, auth: CurrentAuth, session: SessionDep, body: DeliveryCancel | None = None
+    delivery_id: str,
+    auth: CurrentAuth,
+    session: SessionDep,
+    now: NowDep,
+    body: DeliveryCancel | None = None,
 ) -> DeliveryOut:
     """Cancel before takeoff. Once airborne a delivery can't be canceled."""
     delivery = get_owned_delivery(session, auth, delivery_id)
-    cancel_delivery(delivery, body.reason if body else None)
+    cancel_delivery(delivery, body.reason if body else None, at=now)
     session.commit()
     return DeliveryOut.from_model(delivery)
 
