@@ -80,6 +80,30 @@ Errors have a stable code: `{"detail": {"code": "quote_expired", "message": "...
 
 Recipient PINs are stored as salted PBKDF2 hashes; 5 wrong attempts lock the drop-off.
 
+## Flight simulator
+
+With `TRAVEAI_SIM_ENABLED=true` the API server also runs the simulator in the background
+(`TRAVEAI_SIM_SPEED=10` flies drones 10x faster than real time). Each tick it:
+
+1. **Dispatches** idle (or charged-enough) drones to scheduled deliveries, urgent first, after a
+   pre-flight check with live weather, airspace and the drone's current battery. Deliveries no
+   drone can fly are held (weather may clear) and fail after an hour.
+2. **Flies** each mission `hub -> pickup -> drop-off -> hub` along a route planned **around**
+   active no-fly zones (150 m margin), draining battery per meter flown, and moves the delivery
+   through `assigned -> picking_up -> airborne -> arriving -> delivered` on its own.
+3. **Charges** drones back at their hub (empty to full in 30 min).
+
+Prescriptions: the drone hovers at the drop-off for up to 2 minutes (budgeted in its range)
+until `POST /v1/deliveries/{id}/handoff` sends the recipient's PIN.
+
+Failures: wind gusts over a drone's limit (recall before pickup, abort after), low battery,
+blocked drop zone, recipient unavailable. An aborted delivery flies home with the package and
+is retried once, then fails. `TRAVEAI_SIM_FAILURE_RATE` adds random failures; in test mode,
+`POST /v1/test/deliveries/{id}/failures {"kind": "high_wind" | "low_battery" | "drop_zone_blocked"}`
+forces one.
+
+Flying after dark needs `TRAVEAI_ALLOW_NIGHT_OPERATIONS=true` (Part 107 night rules).
+
 ## Test and lint
 
 ```bash

@@ -8,14 +8,18 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from traveai.api.deliveries import get_owned_delivery
-from traveai.auth import CurrentAuth
+from traveai.auth import AuthContext, CurrentAuth
 from traveai.db import get_session
 from traveai.deps import get_now
-from traveai.domain.delivery_status import DeliveryStatus, InvalidTransitionError
+from traveai.domain.delivery_status import (
+    TERMINAL_STATUSES,
+    DeliveryStatus,
+    InvalidTransitionError,
+)
 from traveai.domain.enums import CustodyAction
 from traveai.errors import ApiError
 from traveai.rules.codes import Requirement
-from traveai.schemas.delivery import AdvanceRequest, DeliveryOut
+from traveai.schemas.delivery import AdvanceRequest, DeliveryOut, InjectFailureRequest
 from traveai.services.deliveries import PinRejectedError, complete_delivery
 
 router = APIRouter(prefix="/v1/test", tags=["test mode"])
@@ -42,12 +46,15 @@ def advance(
 ) -> DeliveryOut:
     """Move a delivery one step (or to `to`). Delivering drops at the exact drop-off point
     and checks `pin` like the real drone would."""
-    if not auth.test_mode:
-        raise ApiError(
-            status.HTTP_403_FORBIDDEN, "test_mode_only", "Use an sk_test_ key for this endpoint"
-        )
+    _require_test_mode(auth)
     body = body or AdvanceRequest()
     delivery = get_owned_delivery(session, auth, delivery_id)
+    if any(m.phase is not None for m in delivery.missions):
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            "simulator_controls_delivery",
+            "A simulated drone is flying this delivery; use failures to steer it instead",
+        )
     target = body.to or NEXT_STEP.get(delivery.status)
     if target is None:
         raise ApiError(
@@ -78,3 +85,34 @@ def advance(
 
     session.commit()
     return DeliveryOut.from_model(delivery)
+
+
+@router.post("/deliveries/{delivery_id}/failures", response_model=DeliveryOut)
+def inject_failure(
+    delivery_id: str,
+    body: InjectFailureRequest,
+    auth: CurrentAuth,
+    session: Annotated[Session, Depends(get_session)],
+) -> DeliveryOut:
+    """Force a failure on the simulated flight: `high_wind` or `low_battery` strike halfway to
+    the drop-off, `drop_zone_blocked` on arrival. The drone aborts and flies home."""
+    _require_test_mode(auth)
+    delivery = get_owned_delivery(session, auth, delivery_id)
+    if delivery.status in TERMINAL_STATUSES:
+        raise ApiError(
+            status.HTTP_409_CONFLICT, "invalid_state", f"'{delivery.status}' is a final status"
+        )
+    active = next((m for m in delivery.missions if m.phase is not None), None)
+    if active is not None and not active.failure_triggered:
+        active.injected_failure = body.kind
+    else:
+        delivery.test_failure = body.kind  # applied when the next mission starts
+    session.commit()
+    return DeliveryOut.from_model(delivery)
+
+
+def _require_test_mode(auth: AuthContext) -> None:
+    if not auth.test_mode:
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN, "test_mode_only", "Use an sk_test_ key for this endpoint"
+        )

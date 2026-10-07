@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from traveai.domain.delivery_status import DeliveryStatus
-from traveai.domain.enums import Priority
+from traveai.domain.enums import FailureKind, Priority
 from traveai.models import Delivery, Event
 from traveai.schemas.location import Location
 from traveai.schemas.payload import Payload
@@ -132,6 +132,14 @@ class EventOut(BaseModel):
 class EventList(BaseModel):
     object: Literal["list"] = "list"
     data: list[EventOut]
+
+
+class HandoffRequest(BaseModel):
+    pin: str = Field(pattern=PIN)
+
+
+class InjectFailureRequest(BaseModel):
+    kind: FailureKind
 
 
 class AdvanceRequest(BaseModel):

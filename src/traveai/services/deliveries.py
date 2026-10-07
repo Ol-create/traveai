@@ -187,8 +187,10 @@ def complete_delivery(
             holder=f"recipient:{delivery.recipient_name or 'unnamed'}",
             lat=lat,
             lng=lng,
+            at=at,
         )
     delivery.transition_to(
         DeliveryStatus.DELIVERED,
         data={"lat": lat, "lng": lng, "pin_verified": delivery.pin_required},
+        at=at,
     )

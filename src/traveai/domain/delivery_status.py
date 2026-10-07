@@ -5,6 +5,7 @@ Happy path:
 
 Failure paths:
     scheduled / assigned / picking_up -> canceled   (merchant cancels before takeoff)
+    assigned / picking_up -> scheduled              (drone recalled before pickup; reassign)
     airborne / arriving -> aborted                  (wind, low battery, blocked drop zone)
     aborted -> returned_to_base                     (drone flew home with the package)
     returned_to_base -> scheduled                   (retry)
@@ -37,7 +38,7 @@ _TRANSITIONS: dict[DeliveryStatus, frozenset[DeliveryStatus]] = {
     # assigned -> scheduled allows re-assignment if the chosen drone becomes unavailable.
     S.SCHEDULED: frozenset({S.ASSIGNED, S.CANCELED, S.FAILED}),
     S.ASSIGNED: frozenset({S.PICKING_UP, S.SCHEDULED, S.CANCELED, S.FAILED}),
-    S.PICKING_UP: frozenset({S.AIRBORNE, S.CANCELED, S.FAILED}),
+    S.PICKING_UP: frozenset({S.AIRBORNE, S.SCHEDULED, S.CANCELED, S.FAILED}),
     S.AIRBORNE: frozenset({S.ARRIVING, S.ABORTED, S.FAILED}),
     S.ARRIVING: frozenset({S.DELIVERED, S.ABORTED, S.FAILED}),
     S.ABORTED: frozenset({S.RETURNED_TO_BASE, S.FAILED}),

@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from traveai.db import get_session, make_engine
-from traveai.deps import get_now, get_weather_provider
+from traveai.deps import get_now, get_simulator, get_weather_provider
 from traveai.domain.enums import DropMethod, MerchantCategory
 from traveai.main import create_app
 from traveai.models import Base, Merchant, Vehicle
+from traveai.rules.airspace import default_airspace
 from traveai.rules.weather import CALM, FixedWeatherProvider, WeatherConditions
+from traveai.sim.simulator import SimContext, Simulator
 
 TEST_MERCHANT_ID = "merch_unit_test"
 
@@ -29,6 +31,10 @@ class World:
 
     now: datetime = WEEKDAY_1PM
     weather: WeatherConditions = field(default=CALM)
+
+    def conditions_at(self, lat: float, lng: float, when: datetime) -> WeatherConditions:
+        """Lets the World act as a WeatherProvider that follows `world.weather`."""
+        return self.weather
 
 
 @pytest.fixture
@@ -67,6 +73,9 @@ def client(session: Session, world: World) -> TestClient:
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_now] = lambda: world.now
     app.dependency_overrides[get_weather_provider] = lambda: FixedWeatherProvider(world.weather)
+    app.dependency_overrides[get_simulator] = lambda: Simulator(
+        SimContext(weather=world, airspace=default_airspace())
+    )
     return TestClient(app)
 
 

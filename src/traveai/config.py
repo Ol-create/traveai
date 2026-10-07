@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     # Comma-separated "key:merchant_id" pairs that `python -m traveai.seed` stores in the DB.
     seed_api_keys: str = ""
 
+    # Flight simulator (runs inside the API process)
+    sim_enabled: bool = False
+    sim_speed: float = 1.0  # 10 = drones fly 10x faster than real time
+    sim_tick_seconds: float = 1.0  # real seconds between simulation steps
+    sim_failure_rate: float = 0.0  # chance a mission gets a random failure (0-1)
+
+    # Part 107 allows night flights with anti-collision lighting and recurrent training.
+    # Off by default; handy for demos after dark.
+    allow_night_operations: bool = False
+
     @property
     def seed_api_key_map(self) -> dict[str, str]:
         """Parse seed_api_keys into {api_key: merchant_id}."""

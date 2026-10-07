@@ -10,9 +10,9 @@ from traveai.rules.airspace import AirspaceMap, default_airspace
 from traveai.rules.codes import Requirement, RuleCode, Violation
 from traveai.rules.config import RulesConfig
 from traveai.rules.daylight import is_daylight_or_civil_twilight
-from traveai.rules.geo import haversine_m
 from traveai.rules.laanc import LaancDecision, LaancStatus, request_authorization
 from traveai.rules.payload_rules import check_payload, requirements_for
+from traveai.rules.routing import path_length_m
 from traveai.rules.weather import WeatherConditions, check_weather
 from traveai.schemas.location import Location
 from traveai.schemas.payload import Payload
@@ -48,6 +48,16 @@ class FlightRequest:
     cruise_altitude_ft: int | None = None  # None = use the configured default
     # Worst-case weather along the route; None skips weather checks.
     weather: WeatherConditions | None = None
+    # Planned detour points between pickup and drop-off (from rules.routing). None = straight.
+    waypoints: tuple[tuple[float, float], ...] | None = None
+
+    @property
+    def path(self) -> list[tuple[float, float]]:
+        return [
+            (self.pickup.lat, self.pickup.lng),
+            *(self.waypoints or ()),
+            (self.dropoff.lat, self.dropoff.lng),
+        ]
 
 
 @dataclass(frozen=True)
@@ -81,7 +91,7 @@ def evaluate(
     violations: list[Violation] = []
     p, d = request.pickup, request.dropoff
 
-    distance_m = haversine_m(p.lat, p.lng, d.lat, d.lng)
+    distance_m = path_length_m(request.path)
     est_flight_s = config.flight_overhead_seconds + distance_m / request.vehicle.cruise_speed_mps
     arrival_at = request.departure_at + timedelta(seconds=est_flight_s)
 
@@ -117,7 +127,7 @@ def evaluate(
     # --- Airspace: no-fly zones ------------------------------------------------------------
     proj = airspace.projection
     pickup_pt, dropoff_pt = proj.point(p.lat, p.lng), proj.point(d.lat, d.lng)
-    route = proj.line((p.lat, p.lng), (d.lat, d.lng))
+    route = proj.line(*request.path)
     blocking: list[str] = []
     # A stadium TFR that starts mid-flight still blocks the flight.
     for zone in airspace.zones_active_during(request.departure_at, arrival_at):

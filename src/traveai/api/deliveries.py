@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from traveai.auth import AuthContext, CurrentAuth
 from traveai.db import get_session
-from traveai.deps import get_now
+from traveai.deps import get_now, get_simulator
 from traveai.domain.delivery_status import DeliveryStatus
 from traveai.errors import ApiError
 from traveai.models import Delivery
@@ -21,8 +21,15 @@ from traveai.schemas.delivery import (
     DeliveryOut,
     EventList,
     EventOut,
+    HandoffRequest,
 )
-from traveai.services.deliveries import BookingRequest, book_delivery, cancel_delivery
+from traveai.services.deliveries import (
+    BookingRequest,
+    PinRejectedError,
+    book_delivery,
+    cancel_delivery,
+)
+from traveai.sim.simulator import Simulator
 
 router = APIRouter(prefix="/v1/deliveries", tags=["deliveries"])
 
@@ -127,6 +134,27 @@ def cancel(
     """Cancel before takeoff. Once airborne a delivery can't be canceled."""
     delivery = get_owned_delivery(session, auth, delivery_id)
     cancel_delivery(delivery, body.reason if body else None)
+    session.commit()
+    return DeliveryOut.from_model(delivery)
+
+
+@router.post("/{delivery_id}/handoff", response_model=DeliveryOut)
+def handoff(
+    delivery_id: str,
+    body: HandoffRequest,
+    auth: CurrentAuth,
+    session: SessionDep,
+    now: NowDep,
+    sim: Annotated[Simulator, Depends(get_simulator)],
+) -> DeliveryOut:
+    """Release the package: the recipient's PIN, entered while the drone hovers at the drop-off
+    (your app forwards it). 5 wrong PINs and the drone flies the package home."""
+    delivery = get_owned_delivery(session, auth, delivery_id)
+    try:
+        sim.handoff(session, delivery, body.pin, now)
+    except PinRejectedError:
+        session.commit()  # keep the failed-attempt count
+        raise
     session.commit()
     return DeliveryOut.from_model(delivery)
 

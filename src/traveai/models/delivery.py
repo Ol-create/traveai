@@ -5,9 +5,9 @@ from sqlalchemy import JSON, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from traveai.domain.delivery_status import DeliveryStatus, ensure_transition, event_type_for
-from traveai.domain.enums import CustodyAction, Priority
+from traveai.domain.enums import CustodyAction, FailureKind, Priority
 from traveai.ids import new_id
-from traveai.models.base import Base, TimestampMixin, UTCDateTime, str_enum
+from traveai.models.base import Base, TimestampMixin, UTCDateTime, str_enum, utcnow
 from traveai.models.drop_zone import DropZone
 from traveai.models.event import Event
 from traveai.models.merchant import Merchant
@@ -50,6 +50,8 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     failure_reason: Mapped[str | None] = mapped_column(String(200))
+    # Test mode: a failure to force on the next mission flown for this delivery.
+    test_failure: Mapped[FailureKind | None] = mapped_column(str_enum(FailureKind))
 
     # Proof of delivery
     delivered_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
@@ -88,6 +90,7 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
         *,
         reason: str | None = None,
         data: dict[str, Any] | None = None,
+        at: datetime | None = None,
     ) -> Event:
         """Move to `target` if the state machine allows it, and record an event.
 
@@ -102,6 +105,7 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
             merchant_id=self.merchant_id,
             type=event_type_for(target),
             data={"from": previous.value, "to": target.value, "reason": reason, **(data or {})},
+            created_at=at or utcnow(),
         )
         self.events.append(event)
         return event
@@ -114,6 +118,7 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
         lat: float | None = None,
         lng: float | None = None,
         note: str | None = None,
+        at: datetime | None = None,
     ) -> Event:
         """Log a hand-off of the physical package (who has it now, and where).
 
@@ -123,6 +128,7 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
             merchant_id=self.merchant_id,
             type=CUSTODY_EVENT_TYPE,
             data={"action": action.value, "holder": holder, "lat": lat, "lng": lng, "note": note},
+            created_at=at or utcnow(),
         )
         self.events.append(event)
         return event
