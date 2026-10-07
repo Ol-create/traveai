@@ -14,11 +14,12 @@ from traveai.db import get_session
 from traveai.deps import get_airspace, get_now
 from traveai.domain.delivery_status import TERMINAL_STATUSES
 from traveai.models import Delivery, DropZone, Vehicle
+from traveai.openapi import errors
 from traveai.rules.airspace import AirspaceMap
 from traveai.sim.simulator import active_mission
 from traveai.sim.tracking import tracking_snapshot
 
-router = APIRouter(prefix="/v1/map", tags=["map"])
+router = APIRouter(prefix="/v1/map", tags=["map"], responses=errors(401))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 NowDep = Annotated[datetime, Depends(get_now)]
@@ -26,7 +27,7 @@ RECENT = timedelta(minutes=30)  # finished deliveries stay on the map this long
 MAX_DELIVERIES = 50
 
 
-@router.get("/static")
+@router.get("/static", summary="Static map layers")
 def static_layers(
     auth: CurrentAuth,
     session: SessionDep,
@@ -81,7 +82,7 @@ def static_layers(
     }
 
 
-@router.get("/live")
+@router.get("/live", summary="Live map layers")
 def live(auth: CurrentAuth, session: SessionDep, now: NowDep) -> dict[str, Any]:
     """Fast-changing layers, for polling every second or two: the whole fleet's positions,
     and your own active and recently finished deliveries (with routes and live ETAs)."""

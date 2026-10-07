@@ -7,7 +7,7 @@ from fastapi import status
 from sqlalchemy.orm import Session
 
 from traveai.domain.delivery_status import DeliveryStatus, can_transition, event_type_for
-from traveai.domain.enums import CustodyAction
+from traveai.domain.enums import CustodyAction, FailureKind
 from traveai.errors import ApiError
 from traveai.models import Delivery, DropZone, Event, Quote
 from traveai.rules.codes import Requirement
@@ -27,6 +27,7 @@ class BookingRequest:
     recipient_pin: str | None = None
     dropoff_zone_id: str | None = None
     external_reference: str | None = None
+    test_failure: FailureKind | None = None
 
 
 def book_delivery(
@@ -86,6 +87,7 @@ def book_delivery(
         external_reference=req.external_reference,
         recipient_name=req.recipient_name,
         recipient_phone=req.recipient_phone,
+        test_failure=req.test_failure,
         created_at=now,
         updated_at=now,
     )

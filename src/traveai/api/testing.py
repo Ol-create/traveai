@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from traveai.api.deliveries import get_owned_delivery
 from traveai.auth import AuthContext, CurrentAuth
+from traveai.config import get_settings
 from traveai.db import get_session
 from traveai.deps import get_now
 from traveai.domain.delivery_status import (
@@ -18,11 +19,14 @@ from traveai.domain.delivery_status import (
 )
 from traveai.domain.enums import CustodyAction
 from traveai.errors import ApiError
+from traveai.openapi import errors
 from traveai.rules.codes import Requirement
 from traveai.schemas.delivery import AdvanceRequest, DeliveryOut, InjectFailureRequest
+from traveai.schemas.sandbox import SimulatorStatus, SimulatorUpdate
 from traveai.services.deliveries import PinRejectedError, complete_delivery
+from traveai.sim.runner import control as sim_control
 
-router = APIRouter(prefix="/v1/test", tags=["test mode"])
+router = APIRouter(prefix="/v1/test", tags=["test mode"], responses=errors(401, 403))
 
 S = DeliveryStatus
 NEXT_STEP = {
@@ -36,7 +40,12 @@ NEXT_STEP = {
 }
 
 
-@router.post("/deliveries/{delivery_id}/advance", response_model=DeliveryOut)
+@router.post(
+    "/deliveries/{delivery_id}/advance",
+    response_model=DeliveryOut,
+    summary="Step a delivery by hand",
+    responses=errors(404, 409),
+)
 def advance(
     delivery_id: str,
     auth: CurrentAuth,
@@ -87,7 +96,12 @@ def advance(
     return DeliveryOut.from_model(delivery)
 
 
-@router.post("/deliveries/{delivery_id}/failures", response_model=DeliveryOut)
+@router.post(
+    "/deliveries/{delivery_id}/failures",
+    response_model=DeliveryOut,
+    summary="Force a failure on a flight",
+    responses=errors(404, 409),
+)
 def inject_failure(
     delivery_id: str,
     body: InjectFailureRequest,
@@ -116,3 +130,36 @@ def _require_test_mode(auth: AuthContext) -> None:
         raise ApiError(
             status.HTTP_403_FORBIDDEN, "test_mode_only", "Use an sk_test_ key for this endpoint"
         )
+
+
+@router.get("/simulator", response_model=SimulatorStatus, summary="Simulator status")
+def simulator_status(auth: CurrentAuth) -> SimulatorStatus:
+    """Is the flight simulator running here, and how fast?"""
+    _require_test_mode(auth)
+    return _status()
+
+
+@router.patch("/simulator", response_model=SimulatorStatus, summary="Set simulation speed")
+def update_simulator(body: SimulatorUpdate, auth: CurrentAuth) -> SimulatorStatus:
+    """Change the simulation speed (1-100x) without a restart. Sandbox servers only
+    (`TRAVEAI_SANDBOX_CONTROLS=true`): the fleet is shared by everyone on the server."""
+    _require_test_mode(auth)
+    if not get_settings().sandbox_controls:
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN,
+            "sandbox_controls_disabled",
+            "Simulator controls are off on this server",
+        )
+    sim_control.speed = body.speed
+    return _status()
+
+
+def _status() -> SimulatorStatus:
+    settings = get_settings()
+    return SimulatorStatus(
+        running=sim_control.running,
+        speed=sim_control.speed,
+        failure_rate=settings.sim_failure_rate,
+        night_operations=settings.allow_night_operations,
+        controls_enabled=settings.sandbox_controls,
+    )

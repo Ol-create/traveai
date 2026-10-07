@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     sim_speed: float = 1.0  # 10 = drones fly 10x faster than real time
     sim_tick_seconds: float = 1.0  # real seconds between simulation steps
     sim_failure_rate: float = 0.0  # chance a mission gets a random failure (0-1)
+    # Let test keys change the simulation speed (PATCH /v1/test/simulator). The fleet is shared,
+    # so only enable this on a sandbox server, never in production.
+    sandbox_controls: bool = False
 
     # Webhook sender (runs inside the API process)
     webhooks_enabled: bool = False

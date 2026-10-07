@@ -14,10 +14,11 @@ from traveai.db import get_session
 from traveai.deps import get_clock, get_now, get_session_factory, get_sleep
 from traveai.domain.delivery_status import TERMINAL_STATUSES, DeliveryStatus, event_type_for
 from traveai.models import Delivery
+from traveai.openapi import errors
 from traveai.schemas.tracking import Tracking
 from traveai.sim.tracking import tracking_snapshot
 
-router = APIRouter(prefix="/v1/deliveries", tags=["tracking"])
+router = APIRouter(prefix="/v1/deliveries", tags=["tracking"], responses=errors(401, 404))
 
 HEARTBEAT_EVERY_S = 15.0
 STATUS_EVENT_TYPES = {event_type_for(s) for s in DeliveryStatus}
@@ -33,7 +34,7 @@ class StatusChange(NamedTuple):
 _NOISY_FIELDS = {"as_of", "eta_seconds", "estimated_dropoff_at"}
 
 
-@router.get("/{delivery_id}/tracking", response_model=Tracking)
+@router.get("/{delivery_id}/tracking", response_model=Tracking, summary="Tracking snapshot")
 def tracking(
     delivery_id: str,
     auth: CurrentAuth,
@@ -48,6 +49,7 @@ def tracking(
     "/{delivery_id}/track",
     response_class=StreamingResponse,
     responses={200: {"content": {"text/event-stream": {}}}},
+    summary="Live tracking stream (SSE)",
 )
 def track(
     delivery_id: str,

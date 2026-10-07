@@ -19,6 +19,7 @@ from traveai.api import (
     webhooks,
 )
 from traveai.config import get_settings
+from traveai.openapi import DESCRIPTION, TAGS, operation_id
 from traveai.sim.runner import run_forever as run_simulator
 from traveai.webhooks.runner import run_forever as run_webhooks
 
@@ -44,8 +45,12 @@ def create_app() -> FastAPI:
     app = FastAPI(
         lifespan=lifespan,
         title="TraveAI Delivery API",
-        description="Drone delivery API for merchants: quotes, deliveries, live tracking.",
+        summary="Drone delivery for pharmacies and restaurants: quotes, deliveries, live "
+        "tracking, webhooks.",
+        description=DESCRIPTION,
         version=__version__,
+        openapi_tags=TAGS,
+        generate_unique_id_function=operation_id,
         debug=settings.debug,
     )
     app.include_router(health.router)

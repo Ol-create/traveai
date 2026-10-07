@@ -3,8 +3,9 @@ from pydantic import BaseModel
 
 from traveai.auth import CurrentAuth
 from traveai.domain.enums import MerchantCategory
+from traveai.openapi import errors
 
-router = APIRouter(prefix="/v1", tags=["merchants"])
+router = APIRouter(prefix="/v1", tags=["merchants"], responses=errors(401))
 
 
 class MeResponse(BaseModel):
@@ -14,7 +15,7 @@ class MeResponse(BaseModel):
     test_mode: bool
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get("/me", response_model=MeResponse, summary="Your account")
 def me(auth: CurrentAuth) -> MeResponse:
     """Return the merchant that owns the API key. Useful to verify a key works."""
     return MeResponse(

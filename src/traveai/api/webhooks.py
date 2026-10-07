@@ -8,6 +8,7 @@ from traveai.auth import AuthContext, CurrentAuth
 from traveai.db import get_session
 from traveai.errors import ApiError
 from traveai.models import WebhookEndpoint, WebhookMessage
+from traveai.openapi import errors
 from traveai.schemas.webhook import (
     WebhookEndpointCreate,
     WebhookEndpointList,
@@ -19,7 +20,7 @@ from traveai.schemas.webhook import (
 from traveai.webhooks.sender import UnsafeUrlError, check_url
 from traveai.webhooks.signing import generate_secret
 
-router = APIRouter(prefix="/v1/webhook_endpoints", tags=["webhooks"])
+router = APIRouter(prefix="/v1/webhook_endpoints", tags=["webhooks"], responses=errors(401))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 MAX_ENDPOINTS = 10
@@ -32,7 +33,13 @@ def _owned(session: Session, auth: AuthContext, endpoint_id: str) -> WebhookEndp
     return endpoint
 
 
-@router.post("", response_model=WebhookEndpointWithSecret, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=WebhookEndpointWithSecret,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a webhook endpoint",
+    responses=errors(409, 422),
+)
 def create(
     body: WebhookEndpointCreate, auth: CurrentAuth, session: SessionDep
 ) -> WebhookEndpointWithSecret:
@@ -71,7 +78,7 @@ def create(
     )
 
 
-@router.get("", response_model=WebhookEndpointList)
+@router.get("", response_model=WebhookEndpointList, summary="List webhook endpoints")
 def list_endpoints(auth: CurrentAuth, session: SessionDep) -> WebhookEndpointList:
     rows = session.scalars(
         select(WebhookEndpoint)
@@ -81,12 +88,22 @@ def list_endpoints(auth: CurrentAuth, session: SessionDep) -> WebhookEndpointLis
     return WebhookEndpointList(data=[WebhookEndpointOut.from_model(e) for e in rows])
 
 
-@router.get("/{endpoint_id}", response_model=WebhookEndpointOut)
+@router.get(
+    "/{endpoint_id}",
+    response_model=WebhookEndpointOut,
+    summary="Retrieve a webhook endpoint",
+    responses=errors(404),
+)
 def retrieve(endpoint_id: str, auth: CurrentAuth, session: SessionDep) -> WebhookEndpointOut:
     return WebhookEndpointOut.from_model(_owned(session, auth, endpoint_id))
 
 
-@router.delete("/{endpoint_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{endpoint_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a webhook endpoint",
+    responses=errors(404),
+)
 def delete(endpoint_id: str, auth: CurrentAuth, session: SessionDep) -> Response:
     """Stop sending to this URL. Pending messages are dropped."""
     session.delete(_owned(session, auth, endpoint_id))
@@ -94,7 +111,12 @@ def delete(endpoint_id: str, auth: CurrentAuth, session: SessionDep) -> Response
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{endpoint_id}/rotate_secret", response_model=WebhookEndpointWithSecret)
+@router.post(
+    "/{endpoint_id}/rotate_secret",
+    response_model=WebhookEndpointWithSecret,
+    summary="Rotate the signing secret",
+    responses=errors(404),
+)
 def rotate_secret(
     endpoint_id: str, auth: CurrentAuth, session: SessionDep
 ) -> WebhookEndpointWithSecret:
@@ -107,7 +129,12 @@ def rotate_secret(
     )
 
 
-@router.get("/{endpoint_id}/messages", response_model=WebhookMessageList)
+@router.get(
+    "/{endpoint_id}/messages",
+    response_model=WebhookMessageList,
+    summary="Recent notifications and attempts",
+    responses=errors(404),
+)
 def messages(endpoint_id: str, auth: CurrentAuth, session: SessionDep) -> WebhookMessageList:
     """The last 50 notifications for this URL, with attempt results. For debugging."""
     endpoint = _owned(session, auth, endpoint_id)

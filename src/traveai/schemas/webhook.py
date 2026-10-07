@@ -14,6 +14,18 @@ EVENT_TYPES = sorted(
 
 
 class WebhookEndpointCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "url": "https://pharmacy.example.com/traveai/webhooks",
+                    "enabled_events": ["delivery.*"],
+                    "description": "Order status updates",
+                }
+            ]
+        }
+    }
+
     url: AnyHttpUrl = Field(description="HTTPS URL (http://localhost is fine with test keys).")
     enabled_events: list[str] = Field(
         default_factory=lambda: ["*"],

@@ -13,6 +13,7 @@ from traveai.deps import get_now, get_simulator
 from traveai.domain.delivery_status import DeliveryStatus
 from traveai.errors import ApiError
 from traveai.models import Delivery
+from traveai.openapi import errors
 from traveai.schemas.delivery import (
     DeliveryCancel,
     DeliveryCreate,
@@ -31,7 +32,7 @@ from traveai.services.deliveries import (
 )
 from traveai.sim.simulator import Simulator
 
-router = APIRouter(prefix="/v1/deliveries", tags=["deliveries"])
+router = APIRouter(prefix="/v1/deliveries", tags=["deliveries"], responses=errors(401, 404))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 NowDep = Annotated[datetime, Depends(get_now)]
@@ -45,12 +46,22 @@ def get_owned_delivery(session: Session, auth: AuthContext, delivery_id: str) ->
     return delivery
 
 
-@router.post("", response_model=DeliveryCreated, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=DeliveryCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Book a delivery from a quote",
+    responses=errors(403, 409, 422),
+)
 def create(body: DeliveryCreate, auth: CurrentAuth, session: SessionDep, now: NowDep):
     """Book a delivery from a feasible, unexpired quote. Each quote can be booked once.
 
     For prescriptions the response includes `recipient_pin`, shown only this once.
     """
+    if body.test_failure and not auth.test_mode:
+        raise ApiError(
+            status.HTTP_403_FORBIDDEN, "test_mode_only", "test_failure needs an sk_test_ key"
+        )
     delivery, pin = book_delivery(
         session,
         auth.merchant.id,
@@ -61,6 +72,7 @@ def create(body: DeliveryCreate, auth: CurrentAuth, session: SessionDep, now: No
             recipient_pin=body.recipient_pin,
             dropoff_zone_id=body.dropoff_zone_id,
             external_reference=body.external_reference,
+            test_failure=body.test_failure,
         ),
         now,
     )
@@ -76,7 +88,7 @@ def create(body: DeliveryCreate, auth: CurrentAuth, session: SessionDep, now: No
     return DeliveryCreated(**out.model_dump(), recipient_pin=pin)
 
 
-@router.get("", response_model=DeliveryList)
+@router.get("", response_model=DeliveryList, summary="List deliveries")
 def list_deliveries(
     auth: CurrentAuth,
     session: SessionDep,
@@ -115,19 +127,24 @@ def list_deliveries(
     )
 
 
-@router.get("/{delivery_id}", response_model=DeliveryOut)
+@router.get("/{delivery_id}", response_model=DeliveryOut, summary="Retrieve a delivery")
 def retrieve(delivery_id: str, auth: CurrentAuth, session: SessionDep) -> DeliveryOut:
     return DeliveryOut.from_model(get_owned_delivery(session, auth, delivery_id))
 
 
-@router.get("/{delivery_id}/events", response_model=EventList)
+@router.get("/{delivery_id}/events", response_model=EventList, summary="Delivery timeline")
 def events(delivery_id: str, auth: CurrentAuth, session: SessionDep) -> EventList:
     """Full timeline: status changes, chain-of-custody hand-offs, failed PIN attempts."""
     delivery = get_owned_delivery(session, auth, delivery_id)
     return EventList(data=[EventOut.from_model(e) for e in delivery.events])
 
 
-@router.post("/{delivery_id}/cancel", response_model=DeliveryOut)
+@router.post(
+    "/{delivery_id}/cancel",
+    response_model=DeliveryOut,
+    summary="Cancel a delivery",
+    responses=errors(409),
+)
 def cancel(
     delivery_id: str,
     auth: CurrentAuth,
@@ -142,7 +159,12 @@ def cancel(
     return DeliveryOut.from_model(delivery)
 
 
-@router.post("/{delivery_id}/handoff", response_model=DeliveryOut)
+@router.post(
+    "/{delivery_id}/handoff",
+    response_model=DeliveryOut,
+    summary="Release the package with the recipient PIN",
+    responses=errors(403, 409, 422),
+)
 def handoff(
     delivery_id: str,
     body: HandoffRequest,
@@ -163,7 +185,11 @@ def handoff(
     return DeliveryOut.from_model(delivery)
 
 
-@router.get("/{delivery_id}/proof.svg", response_class=Response)
+@router.get(
+    "/{delivery_id}/proof.svg",
+    response_class=Response,
+    summary="Proof-of-delivery photo (simulated)",
+)
 def proof_photo(delivery_id: str, auth: CurrentAuth, session: SessionDep) -> Response:
     """Simulated drop-off photo (there is no real camera yet)."""
     d = get_owned_delivery(session, auth, delivery_id)

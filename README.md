@@ -167,6 +167,26 @@ endpoints) with your key, which it remembers in this browser. Use test keys only
 Tip: at high `TRAVEAI_SIM_SPEED` the 2-minute PIN hover passes quickly (8 s at 15x); the
 dashboard alerts you when a drone starts waiting.
 
+## API docs and examples
+
+- **Interactive docs:** http://127.0.0.1:8000/docs (quickstart, auth, lifecycle, errors and
+  webhook verification on the landing page; request examples; documented error responses).
+  The raw spec is at `/openapi.json`, with stable `operationId`s (`deliveries_cancel`, ...)
+  for generating client SDKs.
+- **Example integrations** in [`examples/`](examples/README.md): a pharmacy prescription
+  flow with PIN hand-off, a restaurant meal followed live over SSE (`--fail high_wind` shows
+  abort and retry), and a webhook receiver that verifies signatures. They run against the app
+  in the test suite, so they stay in sync with the API.
+
+## Sandbox (test keys)
+
+| Need | How |
+|---|---|
+| Exercise failure handling | Book with `"test_failure": "high_wind"` (or `low_battery`, `drop_zone_blocked`), or `POST /v1/test/deliveries/{id}/failures` mid-flight |
+| Go faster or slower | `GET /v1/test/simulator`; `PATCH /v1/test/simulator {"speed": 20}` (1-100x, needs `TRAVEAI_SANDBOX_CONTROLS=true`; the fleet is shared, so sandbox servers only) |
+| Step without the simulator | `POST /v1/test/deliveries/{id}/advance` |
+| Fly after dark | `TRAVEAI_ALLOW_NIGHT_OPERATIONS=true` |
+
 ## Test and lint
 
 ```bash
@@ -191,6 +211,7 @@ src/traveai/
   models/        database tables: merchants, api_keys, vehicles, drop_zones,
                  quotes, deliveries, missions, events
 migrations/      Alembic migrations
+examples/        copyable integration scripts (run by the tests)
 tests/           pytest suite
 ```
 

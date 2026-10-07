@@ -9,19 +9,22 @@ from traveai.db import get_session
 from traveai.deps import get_airspace, get_now, get_rules_config, get_weather_provider
 from traveai.errors import ApiError
 from traveai.models import Quote
+from traveai.openapi import errors
 from traveai.rules.airspace import AirspaceMap
 from traveai.rules.config import RulesConfig
 from traveai.rules.weather import WeatherProvider
 from traveai.schemas.quote import QuoteCreate, QuoteOut
 from traveai.services.quoting import QuoteContext, QuoteRequest, create_quote
 
-router = APIRouter(prefix="/v1/quotes", tags=["quotes"])
+router = APIRouter(prefix="/v1/quotes", tags=["quotes"], responses=errors(401, 422))
 
 MAX_SCHEDULE_AHEAD = timedelta(days=7)
 CLOCK_SKEW = timedelta(minutes=1)
 
 
-@router.post("", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=QuoteOut, status_code=status.HTTP_201_CREATED, summary="Get a quote"
+)
 def create(
     body: QuoteCreate,
     auth: CurrentAuth,
@@ -66,7 +69,9 @@ def create(
     return QuoteOut.from_model(quote)
 
 
-@router.get("/{quote_id}", response_model=QuoteOut)
+@router.get(
+    "/{quote_id}", response_model=QuoteOut, summary="Retrieve a quote", responses=errors(404)
+)
 def retrieve(
     quote_id: str, auth: CurrentAuth, session: Annotated[Session, Depends(get_session)]
 ) -> QuoteOut:

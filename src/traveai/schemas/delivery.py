@@ -21,6 +21,18 @@ class Recipient(BaseModel):
 
 
 class DeliveryCreate(BaseModel):
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "quote_id": "quo_3f9a1c2b7d4e8f6a0b1c2d3e",
+                    "recipient": {"name": "Ada Lovelace", "phone": "+12145550123"},
+                    "external_reference": "RX-20931",
+                }
+            ]
+        }
+    }
+
     quote_id: str
     recipient: Recipient = Field(default_factory=Recipient)
     recipient_pin: str | None = Field(
@@ -33,10 +45,15 @@ class DeliveryCreate(BaseModel):
     external_reference: str | None = Field(
         default=None, max_length=64, description="Your order number."
     )
+    test_failure: FailureKind | None = Field(
+        default=None,
+        description="Test keys only: force this failure on the first flight, to exercise "
+        "your abort/retry handling.",
+    )
 
 
 class DeliveryCancel(BaseModel):
-    reason: str | None = Field(default=None, max_length=200)
+    reason: str | None = Field(default=None, max_length=200, examples=["customer_changed_mind"])
 
 
 class PriceOut(BaseModel):
@@ -135,7 +152,7 @@ class EventList(BaseModel):
 
 
 class HandoffRequest(BaseModel):
-    pin: str = Field(pattern=PIN)
+    pin: str = Field(pattern=PIN, examples=["482913"])
 
 
 class InjectFailureRequest(BaseModel):
