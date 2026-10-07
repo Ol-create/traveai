@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     sim_tick_seconds: float = 1.0  # real seconds between simulation steps
     sim_failure_rate: float = 0.0  # chance a mission gets a random failure (0-1)
 
+    # Webhook sender (runs inside the API process)
+    webhooks_enabled: bool = False
+
     # Part 107 allows night flights with anti-collision lighting and recurrent training.
     # Off by default; handy for demos after dark.
     allow_night_operations: bool = False

@@ -22,3 +22,5 @@ class Event(Base):
     type: Mapped[str] = mapped_column(String(64), index=True)
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    # Outbox flag: set once webhook messages for this event have been queued.
+    webhooks_enqueued: Mapped[bool] = mapped_column(default=False, server_default="0", index=True)

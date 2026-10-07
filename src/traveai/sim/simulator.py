@@ -114,7 +114,7 @@ class Simulator:
 
     def handoff(self, session: Session, delivery: Delivery, pin: str | None, now: datetime) -> None:
         """Recipient enters the PIN while the drone hovers at the drop-off."""
-        mission = _active_mission(delivery)
+        mission = active_mission(delivery)
         if mission is None or mission.phase != MissionPhase.AWAITING_HANDOFF:
             raise ApiError(
                 status.HTTP_409_CONFLICT,
@@ -242,7 +242,7 @@ class Simulator:
 
     def _deliver_step(self, m: Mission, v: Vehicle, d: Delivery, now: datetime, dt: float) -> None:
         leg_m = _path_m(m.waypoints, m.pickup_index, m.dropoff_index)
-        remaining = self._remaining_to(m, v, m.dropoff_index)
+        remaining = remaining_m(m, v, m.dropoff_index)
         halfway = remaining <= leg_m / 2
 
         if halfway and not m.failure_triggered:
@@ -263,7 +263,7 @@ class Simulator:
 
         reached = self._move(m, v, dt, m.dropoff_index)
         if d.status == S.AIRBORNE and (
-            reached or self._remaining_to(m, v, m.dropoff_index) <= ARRIVING_DISTANCE_M
+            reached or remaining_m(m, v, m.dropoff_index) <= ARRIVING_DISTANCE_M
         ):
             d.transition_to(S.ARRIVING, at=now)
         if not reached:
@@ -359,14 +359,6 @@ class Simulator:
         self._drain(v, moved)
         return m.next_waypoint_index > target_index
 
-    def _remaining_to(self, m: Mission, v: Vehicle, target_index: int) -> float:
-        if m.next_waypoint_index > target_index:
-            return 0.0
-        lat, lng = m.waypoints[m.next_waypoint_index]
-        return haversine_m(v.lat, v.lng, lat, lng) + _path_m(
-            m.waypoints, m.next_waypoint_index, target_index
-        )
-
     def _drain(self, v: Vehicle, meters: float) -> None:
         v.battery_pct = max(0.0, v.battery_pct - self._pct_for(v, meters))
 
@@ -379,6 +371,16 @@ class Simulator:
         return self.ctx.weather.conditions_at(v.lat, v.lng, now).wind_gust_mps > v.max_wind_mps
 
 
+def remaining_m(m: Mission, v: Vehicle, target_index: int) -> float:
+    """Distance still to fly from the drone's position to waypoint `target_index`."""
+    if m.next_waypoint_index > target_index:
+        return 0.0
+    lat, lng = m.waypoints[m.next_waypoint_index]
+    return haversine_m(v.lat, v.lng, lat, lng) + _path_m(
+        m.waypoints, m.next_waypoint_index, target_index
+    )
+
+
 def _path_m(waypoints: list[list[float]], start: int, end: int) -> float:
     return sum(
         haversine_m(*waypoints[i], *waypoints[i + 1])
@@ -386,5 +388,5 @@ def _path_m(waypoints: list[list[float]], start: int, end: int) -> float:
     )
 
 
-def _active_mission(delivery: Delivery) -> Mission | None:
+def active_mission(delivery: Delivery) -> Mission | None:
     return next((m for m in delivery.missions if m.phase is not None), None)

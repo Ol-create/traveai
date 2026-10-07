@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -8,7 +9,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from traveai.db import get_session, make_engine
-from traveai.deps import get_now, get_simulator, get_weather_provider
+from traveai.deps import (
+    get_clock,
+    get_now,
+    get_session_factory,
+    get_simulator,
+    get_weather_provider,
+)
 from traveai.domain.enums import DropMethod, MerchantCategory
 from traveai.main import create_app
 from traveai.models import Base, Merchant, Vehicle
@@ -76,6 +83,9 @@ def client(session: Session, world: World) -> TestClient:
     app.dependency_overrides[get_simulator] = lambda: Simulator(
         SimContext(weather=world, airspace=default_airspace())
     )
+    # Streams share the test's session and clock (and tests can swap get_sleep).
+    app.dependency_overrides[get_session_factory] = lambda: lambda: nullcontext(session)
+    app.dependency_overrides[get_clock] = lambda: lambda: world.now
     return TestClient(app)
 
 

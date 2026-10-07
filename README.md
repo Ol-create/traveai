@@ -104,6 +104,45 @@ forces one.
 
 Flying after dark needs `TRAVEAI_ALLOW_NIGHT_OPERATIONS=true` (Part 107 night rules).
 
+## Live tracking
+
+- `GET /v1/deliveries/{id}/tracking`: snapshot with drone position, altitude, battery,
+  remaining distance, live ETA and the planned route.
+- `GET /v1/deliveries/{id}/track`: the same as a **Server-Sent Events** stream until the delivery
+  finishes. Events: `status` (every status change, in order, from the event log, so short
+  statuses are never skipped), `position` (snapshot), `end`. Keep-alive comment every 15 s.
+
+```bash
+curl -N -H "Authorization: Bearer <your sk_test_ key>" \
+  http://127.0.0.1:8000/v1/deliveries/<delivery id>/track
+```
+
+Browsers' `EventSource` can't send an `Authorization` header, so proxy the stream through your
+server.
+
+## Webhooks
+
+Register a URL and we POST every matching event to it:
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/webhook_endpoints \
+  -H "Authorization: Bearer <your sk_test_ key>" -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/traveai-hooks", "enabled_events": ["delivery.*"]}'
+```
+
+- Body: `{"id": "evt_...", "type": "delivery.airborne", "data": {"object": <delivery>, "details": {...}}}`.
+- Every request has `TraveAI-Signature: t=<unix time>,v1=<HMAC-SHA256 of "<t>.<body>">` using
+  the endpoint's `whsec_...` secret (shown once; `POST /{id}/rotate_secret` to replace it).
+  Verify with `traveai.webhooks.signing.verify(body, header, secret)`; signatures older than
+  5 minutes are rejected (replay protection).
+- Non-2xx responses and network errors are retried after 10 s, 30 s, 2 min, 10 min, 30 min,
+  1 h, 3 h, 6 h, then marked failed. `GET /{id}/messages` shows recent attempts.
+- Events are queued through an outbox in the database, so none are lost if the server restarts.
+- Live-key endpoints must be public HTTPS; private and loopback addresses are refused (SSRF
+  protection). Test keys may use `http://localhost`.
+
+Set `TRAVEAI_WEBHOOKS_ENABLED=true` to run the sender inside the API server.
+
 ## Test and lint
 
 ```bash

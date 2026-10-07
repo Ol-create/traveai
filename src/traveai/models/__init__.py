@@ -8,6 +8,7 @@ from traveai.models.merchant import ApiKey, Merchant
 from traveai.models.mission import Mission
 from traveai.models.quote import Quote
 from traveai.models.vehicle import Vehicle
+from traveai.models.webhook import WebhookEndpoint, WebhookMessage, WebhookMessageStatus
 
 __all__ = [
     "ApiKey",
@@ -19,4 +20,7 @@ __all__ = [
     "Mission",
     "Quote",
     "Vehicle",
+    "WebhookEndpoint",
+    "WebhookMessage",
+    "WebhookMessageStatus",
 ]
