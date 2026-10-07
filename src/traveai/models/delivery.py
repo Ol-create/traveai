@@ -1,8 +1,7 @@
-import secrets
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from traveai.domain.delivery_status import DeliveryStatus, ensure_transition, event_type_for
@@ -15,7 +14,7 @@ from traveai.models.merchant import Merchant
 from traveai.models.mission import Mission
 from traveai.models.mixins import PayloadMixin, RouteMixin
 from traveai.models.quote import Quote
-from traveai.security import hash_secret
+from traveai.security import hash_pin, verify_pin
 
 _REASON_STATUSES = {DeliveryStatus.ABORTED, DeliveryStatus.FAILED, DeliveryStatus.CANCELED}
 CUSTODY_EVENT_TYPE = "delivery.custody"
@@ -39,10 +38,16 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
     # The merchant's own order number, so they can match our deliveries to their orders.
     external_reference: Mapped[str | None] = mapped_column(String(64), index=True)
 
+    # Copied from the quote, e.g. ["chain_of_custody", "recipient_pin"]
+    requirements: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    estimated_pickup_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    estimated_dropoff_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
     recipient_name: Mapped[str | None] = mapped_column(String(100))
     recipient_phone: Mapped[str | None] = mapped_column(String(32))
-    # Prescriptions: recipient must enter this PIN at drop-off. Only the hash is stored.
-    recipient_pin_hash: Mapped[str | None] = mapped_column(String(64))
+    # Prescriptions: recipient must enter this PIN at drop-off. Only a salted hash is stored.
+    recipient_pin_hash: Mapped[str | None] = mapped_column(String(128))
+    pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     failure_reason: Mapped[str | None] = mapped_column(String(200))
 
@@ -68,12 +73,14 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
         super().__init__(**kwargs)
 
     def set_recipient_pin(self, pin: str) -> None:
-        self.recipient_pin_hash = hash_secret(pin)
+        self.recipient_pin_hash = hash_pin(pin)
 
     def check_recipient_pin(self, pin: str) -> bool:
-        if self.recipient_pin_hash is None:
-            return False
-        return secrets.compare_digest(self.recipient_pin_hash, hash_secret(pin))
+        return self.recipient_pin_hash is not None and verify_pin(pin, self.recipient_pin_hash)
+
+    @property
+    def pin_required(self) -> bool:
+        return "recipient_pin" in self.requirements
 
     def transition_to(
         self,

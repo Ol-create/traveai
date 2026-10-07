@@ -64,6 +64,22 @@ How a quote is built:
 Quotes expire after 5 minutes. `GET /v1/quotes/{id}` fetches one of your own quotes.
 Real clock time applies, so quotes made after dark in Dallas come back `outside_daylight`.
 
+## Deliveries
+
+| Endpoint | What it does |
+|---|---|
+| `POST /v1/deliveries` | Book a feasible, unexpired quote (`quote_id`). Each quote books once, so retries can't double-book. Prescriptions return a one-time `recipient_pin`. |
+| `GET /v1/deliveries` | Your deliveries, newest first. Filters: `status` (repeatable), `external_reference`, `created_gte`, `created_lt`. Paginate with `limit` + `starting_after`. |
+| `GET /v1/deliveries/{id}` | One delivery, including `proof` once delivered. |
+| `GET /v1/deliveries/{id}/events` | Timeline: status changes, chain-of-custody hand-offs, failed PIN attempts. |
+| `POST /v1/deliveries/{id}/cancel` | Cancel before takeoff (`409 cannot_cancel` once airborne). |
+| `GET /v1/deliveries/{id}/proof.svg` | Simulated drop-off photo. |
+| `POST /v1/test/deliveries/{id}/advance` | **Test keys only.** Move a delivery one step (or `to` a status), standing in for the flight simulator. Delivering checks `pin`. |
+
+Errors have a stable code: `{"detail": {"code": "quote_expired", "message": "..."}}`.
+
+Recipient PINs are stored as salted PBKDF2 hashes; 5 wrong attempts lock the drop-off.
+
 ## Test and lint
 
 ```bash

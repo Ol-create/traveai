@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from traveai.auth import CurrentAuth
 from traveai.db import get_session
 from traveai.deps import get_airspace, get_now, get_rules_config, get_weather_provider
+from traveai.errors import ApiError
 from traveai.models import Quote
 from traveai.rules.airspace import AirspaceMap
 from traveai.rules.config import RulesConfig
@@ -37,10 +38,16 @@ def create(
     """
     if body.pickup_at is not None:
         if body.pickup_at < now - CLOCK_SKEW:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "pickup_at is in the past")
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "invalid_pickup_at",
+                "pickup_at is in the past",
+            )
         if body.pickup_at > now + MAX_SCHEDULE_AHEAD:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_CONTENT, "pickup_at is more than 7 days ahead"
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "invalid_pickup_at",
+                "pickup_at is more than 7 days ahead",
             )
 
     quote = create_quote(
@@ -66,5 +73,5 @@ def retrieve(
     quote = session.get(Quote, quote_id)
     # Another merchant's quote looks exactly like a missing one.
     if quote is None or quote.merchant_id != auth.merchant.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quote not found")
+        raise ApiError(status.HTTP_404_NOT_FOUND, "quote_not_found", "Quote not found")
     return QuoteOut.from_model(quote)
