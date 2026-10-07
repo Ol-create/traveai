@@ -24,6 +24,8 @@ class Vehicle(TimestampMixin, Base):
     cruise_speed_mps: Mapped[float] = mapped_column(Float)
     temperature_controlled: Mapped[bool] = mapped_column(default=False)
     drop_method: Mapped[DropMethod] = mapped_column(str_enum(DropMethod))
+    # Max wind gust it can safely fly in (fixed-wing drones tolerate more than quadcopters).
+    max_wind_mps: Mapped[float] = mapped_column(Float, default=12.0, server_default="12.0")
 
     # Live state
     battery_pct: Mapped[float] = mapped_column(Float, default=100.0)

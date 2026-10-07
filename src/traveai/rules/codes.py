@@ -19,6 +19,14 @@ class RuleCode(StrEnum):
     TEMPERATURE_CONTROL_UNAVAILABLE = "temperature_control_unavailable"
     URGENT_PRIORITY_MEDICAL_ONLY = "urgent_priority_medical_only"
     FOOD_DELIVERY_TOO_SLOW = "food_delivery_too_slow"
+    # Weather
+    WIND_TOO_HIGH = "wind_too_high"
+    PRECIPITATION_TOO_HEAVY = "precipitation_too_heavy"
+    VISIBILITY_TOO_LOW = "visibility_too_low"
+    TEMPERATURE_OUT_OF_RANGE = "temperature_out_of_range"
+    # Fleet
+    OUT_OF_RANGE = "out_of_range"
+    NO_VEHICLE_AVAILABLE = "no_vehicle_available"
 
 
 class Requirement(StrEnum):

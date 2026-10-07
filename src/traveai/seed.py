@@ -24,14 +24,39 @@ DEMO_MERCHANTS = [
     ("merch_demo_restaurant", "Demo Kitchen (Dallas)", MerchantCategory.RESTAURANT),
 ]
 
-# call_sign, model, hub, max_payload_kg, max_range_km, cruise_speed_mps, temp_controlled, drop
+QUAD = dict(
+    model="QuadLift M2",
+    max_payload_kg=2.5,
+    max_range_km=16.0,
+    cruise_speed_mps=22.0,
+    temperature_controlled=False,
+    max_wind_mps=12.0,
+)
+QUAD_THERMO = dict(
+    model="QuadLift M2-Thermo",
+    max_payload_kg=2.0,
+    max_range_km=14.0,
+    cruise_speed_mps=20.0,
+    temperature_controlled=True,
+    max_wind_mps=11.0,
+)
+FIXED_WING = dict(
+    model="FixedWing V1",
+    max_payload_kg=1.8,
+    max_range_km=40.0,
+    cruise_speed_mps=30.0,
+    temperature_controlled=True,
+    max_wind_mps=15.0,
+)
+
+# call_sign, hub, specs, drop method
 DEMO_VEHICLES = [
-    ("TRV-101", "QuadLift M2", "deep_ellum", 2.5, 16.0, 22.0, False, DropMethod.WINCH),
-    ("TRV-102", "QuadLift M2", "deep_ellum", 2.5, 16.0, 22.0, False, DropMethod.WINCH),
-    ("TRV-103", "QuadLift M2-Thermo", "deep_ellum", 2.0, 14.0, 20.0, True, DropMethod.WINCH),
-    ("TRV-201", "FixedWing V1", "medical_district", 1.8, 40.0, 30.0, True, DropMethod.PARACHUTE),
-    ("TRV-202", "FixedWing V1", "medical_district", 1.8, 40.0, 30.0, True, DropMethod.PARACHUTE),
-    ("TRV-203", "QuadLift M2", "medical_district", 2.5, 16.0, 22.0, False, DropMethod.LAND),
+    ("TRV-101", "deep_ellum", QUAD, DropMethod.WINCH),
+    ("TRV-102", "deep_ellum", QUAD, DropMethod.WINCH),
+    ("TRV-103", "deep_ellum", QUAD_THERMO, DropMethod.WINCH),
+    ("TRV-201", "medical_district", FIXED_WING, DropMethod.PARACHUTE),
+    ("TRV-202", "medical_district", FIXED_WING, DropMethod.PARACHUTE),
+    ("TRV-203", "medical_district", QUAD, DropMethod.LAND),
 ]
 
 DEMO_DROP_ZONES = [
@@ -56,24 +81,16 @@ def seed(session: Session) -> None:
         if session.scalar(select(ApiKey).where(ApiKey.key_hash == hash_secret(key))) is None:
             merchant.issue_api_key(plaintext=key)
 
-    for call_sign, model, hub, payload, range_km, speed, thermo, drop in DEMO_VEHICLES:
-        if session.scalar(select(Vehicle).where(Vehicle.call_sign == call_sign)) is None:
+    for call_sign, hub, specs, drop in DEMO_VEHICLES:
+        vehicle = session.scalar(select(Vehicle).where(Vehicle.call_sign == call_sign))
+        if vehicle is None:
             lat, lng = HUBS[hub]
-            session.add(
-                Vehicle(
-                    call_sign=call_sign,
-                    model=model,
-                    max_payload_kg=payload,
-                    max_range_km=range_km,
-                    cruise_speed_mps=speed,
-                    temperature_controlled=thermo,
-                    drop_method=drop,
-                    lat=lat,
-                    lng=lng,
-                    base_lat=lat,
-                    base_lng=lng,
-                )
-            )
+            vehicle = Vehicle(call_sign=call_sign, lat=lat, lng=lng, base_lat=lat, base_lng=lng)
+            session.add(vehicle)
+        # Refresh specs on every run, so spec changes reach existing dev databases.
+        for field, value in specs.items():
+            setattr(vehicle, field, value)
+        vehicle.drop_method = drop
 
     for label, kind, lat, lng, radius in DEMO_DROP_ZONES:
         if session.scalar(select(DropZone).where(DropZone.label == label)) is None:

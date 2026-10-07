@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,12 +23,24 @@ class Quote(TimestampMixin, RouteMixin, PayloadMixin, Base):
     priority: Mapped[Priority] = mapped_column(str_enum(Priority), default=Priority.STANDARD)
 
     feasible: Mapped[bool]
-    # Machine-readable reasons when not feasible, e.g. ["inside_no_fly_zone", "wind_too_high"]
-    infeasible_reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # Why not feasible: [{"code": "wind_too_high", "message": "Wind gusts ..."}, ...]
+    infeasible_reasons: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
+    # What an accepted delivery must satisfy, e.g. ["recipient_pin", "chain_of_custody"]
+    requirements: Mapped[list[str]] = mapped_column(JSON, default=list)
+
     price_cents: Mapped[int | None] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="usd")
-    eta_seconds: Mapped[int | None] = mapped_column(Integer)
+    # [{"item": "base_fee", "amount_cents": 499}, ...]
+    price_breakdown: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+
     distance_m: Mapped[float] = mapped_column(Float)
+    cruise_altitude_ft: Mapped[int | None] = mapped_column(Integer)
+    requested_pickup_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    estimated_pickup_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    estimated_dropoff_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    eta_seconds: Mapped[int | None] = mapped_column(Integer)  # from quote creation to drop-off
+    # Weather snapshot the quote was based on.
+    weather: Mapped[dict[str, float] | None] = mapped_column(JSON)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
     delivery: Mapped["Delivery | None"] = relationship(back_populates="quote")

@@ -37,6 +37,33 @@ seed script; only SHA-256 hashes are stored).
 curl -H "Authorization: Bearer <your sk_test_ key>" http://127.0.0.1:8000/v1/me
 ```
 
+## Quotes
+
+`POST /v1/quotes` checks and prices a delivery before booking it. It always returns a quote; if
+the delivery can't happen it has `feasible: false` and lists every reason.
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/quotes \
+  -H "Authorization: Bearer <your sk_test_ key>" -H "Content-Type: application/json" \
+  -d '{"pickup": {"lat": 32.7843, "lng": -96.7837},
+       "dropoff": {"lat": 32.8120, "lng": -96.7520},
+       "payload": {"category": "food", "weight_kg": 1.2,
+                   "length_cm": 30, "width_cm": 25, "height_cm": 15}}'
+```
+
+How a quote is built:
+
+1. Every drone in service plans the full loop: hub → pickup → drop-off → hub.
+2. Each plan is checked against the flight rules, the weather (simulated, repeatable) at pickup
+   and drop-off, and the drone's battery range (with a 20% reserve).
+3. The earliest feasible drop-off wins. If none is feasible, the reasons come from the plan
+   closest to working.
+4. Price = $4.99 base + $1.20/km + $0.75 per started 0.5 kg over 1 kg + $3.00 cold chain +
+   priority surcharge (express $3.99, urgent $9.99, medical only).
+
+Quotes expire after 5 minutes. `GET /v1/quotes/{id}` fetches one of your own quotes.
+Real clock time applies, so quotes made after dark in Dallas come back `outside_daylight`.
+
 ## Test and lint
 
 ```bash

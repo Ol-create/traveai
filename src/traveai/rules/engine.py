@@ -13,6 +13,7 @@ from traveai.rules.daylight import is_daylight_or_civil_twilight
 from traveai.rules.geo import haversine_m
 from traveai.rules.laanc import LaancDecision, LaancStatus, request_authorization
 from traveai.rules.payload_rules import check_payload, requirements_for
+from traveai.rules.weather import WeatherConditions, check_weather
 from traveai.schemas.location import Location
 from traveai.schemas.payload import Payload
 
@@ -24,6 +25,7 @@ class VehicleProfile:
     max_payload_kg: float
     cruise_speed_mps: float
     temperature_controlled: bool
+    max_wind_mps: float = 12.0
 
     @classmethod
     def from_vehicle(cls, vehicle: Vehicle) -> "VehicleProfile":
@@ -31,6 +33,7 @@ class VehicleProfile:
             max_payload_kg=vehicle.max_payload_kg,
             cruise_speed_mps=vehicle.cruise_speed_mps,
             temperature_controlled=vehicle.temperature_controlled,
+            max_wind_mps=vehicle.max_wind_mps,
         )
 
 
@@ -43,6 +46,8 @@ class FlightRequest:
     departure_at: datetime
     priority: Priority = Priority.STANDARD
     cruise_altitude_ft: int | None = None  # None = use the configured default
+    # Worst-case weather along the route; None skips weather checks.
+    weather: WeatherConditions | None = None
 
 
 @dataclass(frozen=True)
@@ -150,6 +155,12 @@ def evaluate(
         est_flight_seconds=est_flight_s,
         config=config,
     )
+
+    # --- Weather ---------------------------------------------------------------------------
+    if request.weather is not None:
+        violations += check_weather(
+            request.weather, max_wind_mps=request.vehicle.max_wind_mps, config=config
+        )
 
     return RulesResult(
         violations=tuple(violations),

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from traveai import __version__
-from traveai.api import health, merchants
+from traveai.api import health, merchants, quotes
 from traveai.config import get_settings
 
 
@@ -15,6 +15,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router)
     app.include_router(merchants.router)
+    app.include_router(quotes.router)
     return app
 
 
