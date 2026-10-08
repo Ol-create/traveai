@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>TraveAI Portal</title>
+  <link rel="stylesheet" href="/portal-assets/styles.css">
+</head>
+<body>
+  <!-- Signed out -->
+  <main id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="brand"><span class="logo" aria-hidden="true"></span>TraveAI</div>
+      <h1 id="auth-title">Log in</h1>
+      <form id="login-form" class="stack" autocomplete="on">
+        <label>Email <input name="email" type="email" autocomplete="username" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Log in</button>
+        <p class="muted small">New here? <a href="#/signup">Create an account</a></p>
+      </form>
+      <form id="signup-form" class="stack" autocomplete="on" hidden>
+        <label>Business name <input name="business_name" required minlength="2" maxlength="120"></label>
+        <label>Type of business
+          <select name="category" required>
+            <option value="pharmacy">Pharmacy</option>
+            <option value="hospital">Hospital</option>
+            <option value="lab">Lab</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="grocery">Grocery</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Your name <input name="name" autocomplete="name" required maxlength="100"></label>
+        <label>Work email <input name="email" type="email" autocomplete="email" required></label>
+        <label>Password <span class="muted">(10+ characters)</span>
+          <input name="password" type="password" autocomplete="new-password" required minlength="10">
+        </label>
+        <button type="submit">Create account</button>
+        <p class="muted small">Have an account? <a href="#/login">Log in</a></p>
+      </form>
+      <p id="auth-error" class="error" role="alert"></p>
+    </div>
+  </main>
+
+  <!-- Signed in -->
+  <div id="app" class="shell" hidden>
+    <nav class="nav" aria-label="Portal">
+      <div class="brand"><span class="logo" aria-hidden="true"></span>TraveAI</div>
+      <a href="#/overview" data-view="overview">Overview</a>
+      <a href="#/deliveries" data-view="deliveries">Deliveries</a>
+      <a href="#/keys" data-view="keys">API keys</a>
+      <a href="#/webhooks" data-view="webhooks">Webhooks</a>
+      <a href="#/account" data-view="account">Account</a>
+      <div class="nav-foot">
+        <a href="/docs" target="_blank" rel="noopener">API docs ↗</a>
+        <a href="/dashboard/" target="_blank" rel="noopener">Live map ↗</a>
+      </div>
+    </nav>
+    <main class="content">
+      <header class="topline">
+        <h1 id="view-title"></h1>
+        <span id="merchant-name" class="muted"></span>
+      </header>
+      <div id="view"></div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/portal-assets/app.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ from traveai.models.event import Event
 from traveai.models.merchant import ApiKey, Merchant
 from traveai.models.mission import Mission
 from traveai.models.ops import RuntimeSetting, WorkerLease
+from traveai.models.portal import PortalSession, User
 from traveai.models.quote import Quote
 from traveai.models.vehicle import Vehicle
 from traveai.models.webhook import WebhookEndpoint, WebhookMessage, WebhookMessageStatus
@@ -19,8 +20,10 @@ __all__ = [
     "Event",
     "Merchant",
     "Mission",
+    "PortalSession",
     "Quote",
     "RuntimeSetting",
+    "User",
     "Vehicle",
     "WebhookEndpoint",
     "WebhookMessage",

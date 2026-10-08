@@ -143,6 +143,29 @@ curl -X POST http://127.0.0.1:8000/v1/webhook_endpoints \
 
 Set `TRAVEAI_WEBHOOKS_ENABLED=true` to run the sender inside the API server.
 
+## Merchant portal
+
+http://127.0.0.1:8000/portal/: self-serve accounts for merchants. Locally, log in as
+`demo@traveai.test` with `TRAVEAI_SEED_PORTAL_PASSWORD` from `.env` (after `python -m traveai.seed`).
+
+| Page | What it does |
+|---|---|
+| Sign up | Creates the business, an owner login and a first test key (`TRAVEAI_PORTAL_SIGNUP_ENABLED=false` for invite-only) |
+| Overview | Deliveries, delivered, spend, on-time rate, average time to door, deliveries per day (30 days) |
+| Deliveries | Filter by status, search by order # or delivery id, details with timeline, customer link, cancel |
+| API keys | Create labelled test keys (live keys once the business is verified), revoke |
+| Webhooks | Add endpoints, rotate secrets, see recent deliveries and their results |
+| Account | Business and login details, live-mode status, log out |
+
+Security: scrypt password hashes; sessions are server-side behind an `HttpOnly`, `SameSite=Lax`
+cookie (`Secure` in production); every change needs the session's `X-CSRF-Token`; login and
+sign-up are rate limited per IP and never reveal whether an email exists; strict CSP and
+`X-Frame-Options: DENY` on the portal page. The portal's JSON API (`/portal/api`) calls the
+same functions as the public API, so their rules can't drift apart.
+
+Operators: `python -m traveai.admin enable-live merch_...` (business verified) and
+`python -m traveai.admin invite-user merch_... email "Name"` (prints a temporary password).
+
 ## Customer tracking page
 
 Every delivery has a `tracking_url` (`<TRAVEAI_PUBLIC_BASE_URL>/t/<token>`) in API responses,

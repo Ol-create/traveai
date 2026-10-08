@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from traveai.config import get_settings
 from traveai.db import get_sessionmaker
 from traveai.domain.enums import DropMethod, DropZoneKind, MerchantCategory
-from traveai.models import ApiKey, DropZone, Merchant, Vehicle
+from traveai.models import ApiKey, DropZone, Merchant, User, Vehicle
+from traveai.portal.auth import hash_password
 from traveai.security import hash_secret
 
 # Approximate locations, demo only.
@@ -18,6 +19,8 @@ HUBS = {
     "deep_ellum": (32.7843, -96.7837),
     "medical_district": (32.8125, -96.8400),
 }
+
+DEMO_PORTAL_EMAIL = "demo@traveai.test"
 
 DEMO_MERCHANTS = [
     ("merch_demo_pharmacy", "Demo Pharmacy (Dallas)", MerchantCategory.PHARMACY),
@@ -80,6 +83,18 @@ def seed(session: Session) -> None:
             continue
         if session.scalar(select(ApiKey).where(ApiKey.key_hash == hash_secret(key))) is None:
             merchant.issue_api_key(plaintext=key)
+
+    password = get_settings().seed_portal_password
+    if password and session.get(Merchant, "merch_demo_pharmacy"):
+        if session.scalar(select(User).where(User.email == DEMO_PORTAL_EMAIL)) is None:
+            session.add(
+                User(
+                    merchant_id="merch_demo_pharmacy",
+                    email=DEMO_PORTAL_EMAIL,
+                    name="Demo Pharmacist",
+                    password_hash=hash_password(password),
+                )
+            )
 
     for call_sign, hub, specs, drop in DEMO_VEHICLES:
         vehicle = session.scalar(select(Vehicle).where(Vehicle.call_sign == call_sign))

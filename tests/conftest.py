@@ -20,6 +20,8 @@ from traveai.deps import (
 from traveai.domain.enums import DropMethod, MerchantCategory
 from traveai.main import create_app
 from traveai.models import Base, Merchant, Vehicle
+from traveai.portal.api import get_login_limiter
+from traveai.ratelimit import MemoryRateLimiter, get_rate_limiter
 from traveai.rules.airspace import default_airspace
 from traveai.rules.weather import CALM, FixedWeatherProvider, WeatherConditions
 from traveai.sim.simulator import SimContext, Simulator
@@ -97,6 +99,10 @@ def client(session: Session, world: World) -> TestClient:
     # Streams share the test's session and clock (and tests can swap get_sleep).
     app.dependency_overrides[get_session_factory] = lambda: lambda: nullcontext(session)
     app.dependency_overrides[get_clock] = lambda: lambda: world.now
+    # Fresh rate-limit counters per test (all tests share one client address).
+    api_limiter, login_limiter = MemoryRateLimiter(600), MemoryRateLimiter(10)
+    app.dependency_overrides[get_rate_limiter] = lambda: api_limiter
+    app.dependency_overrides[get_login_limiter] = lambda: login_limiter
     return TestClient(app)
 
 

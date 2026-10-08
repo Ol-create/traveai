@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     public_base_url: str = "http://127.0.0.1:8000"
     # Comma-separated "key:merchant_id" pairs that `python -m traveai.seed` stores in the DB.
     seed_api_keys: str = ""
+    # Demo portal login (demo@traveai.test) for the demo pharmacy, created by the seed script.
+    seed_portal_password: str = ""
 
     # Encrypts webhook secrets at rest. Comma-separated Fernet keys, newest first (older ones
     # still decrypt, for rotation). Generate: python -m traveai.crypto new-key
@@ -23,6 +25,8 @@ class Settings(BaseSettings):
     # Per-API-key request limit (0 = off). Counted in memory, or in Redis when set, which is
     # needed for an accurate limit across several API servers.
     rate_limit_per_minute: int = 600
+    # Merchant portal: allow self-serve sign-up (turn off for invite-only).
+    portal_signup_enabled: bool = True
     redis_url: str = ""
 
     # Background workers inside the API process (development). In production run
@@ -71,8 +75,8 @@ class Settings(BaseSettings):
             problems.append("TRAVEAI_SANDBOX_CONTROLS must be off (the fleet is shared)")
         if self.debug:
             problems.append("TRAVEAI_DEBUG must be off (it exposes tracebacks)")
-        if self.seed_api_keys:
-            problems.append("TRAVEAI_SEED_API_KEYS must be empty (demo keys)")
+        if self.seed_api_keys or self.seed_portal_password:
+            problems.append("TRAVEAI_SEED_API_KEYS / SEED_PORTAL_PASSWORD must be empty (demo)")
         if problems:
             raise RuntimeError("Unsafe production settings:\n- " + "\n- ".join(problems))
 

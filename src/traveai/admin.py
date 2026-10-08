@@ -4,20 +4,24 @@
     python -m traveai.admin create-key merch_... [--live]
     python -m traveai.admin list-keys merch_...
     python -m traveai.admin revoke-key key_...
+    python -m traveai.admin enable-live merch_...            # business verified: allow live keys
+    python -m traveai.admin invite-user merch_... ada@example.com "Ada Lovelace"
 
 New keys are printed once; only their hashes are stored. In Docker:
     docker compose run --rm api python -m traveai.admin create-merchant "..." --category ...
 """
 
 import argparse
+import secrets
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from traveai.db import get_sessionmaker
 from traveai.domain.enums import MerchantCategory
-from traveai.models import ApiKey, Merchant
+from traveai.models import ApiKey, Merchant, User
 from traveai.models.base import utcnow
+from traveai.portal.auth import hash_password
 
 
 def create_merchant(
@@ -49,6 +53,32 @@ def revoke_key(session: Session, key_id: str) -> ApiKey:
     return key
 
 
+def enable_live(session: Session, merchant_id: str) -> Merchant:
+    merchant = session.get(Merchant, merchant_id)
+    if merchant is None:
+        raise SystemExit(f"No merchant {merchant_id}")
+    merchant.live_enabled = True
+    session.commit()
+    return merchant
+
+
+def invite_user(session: Session, merchant_id: str, email: str, name: str) -> tuple[User, str]:
+    """Portal login for a merchant (e.g. when self-serve sign-up is off). Returns a one-time
+    temporary password to pass on securely."""
+    if session.get(Merchant, merchant_id) is None:
+        raise SystemExit(f"No merchant {merchant_id}")
+    password = secrets.token_urlsafe(12)
+    user = User(
+        merchant_id=merchant_id,
+        email=email.strip().lower(),
+        name=name,
+        password_hash=hash_password(password),
+    )
+    session.add(user)
+    session.commit()
+    return user, password
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m traveai.admin", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -62,6 +92,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("merchant_id")
     p = sub.add_parser("revoke-key", help="revoke a key immediately")
     p.add_argument("key_id")
+    p = sub.add_parser("enable-live", help="allow live keys (after verifying the business)")
+    p.add_argument("merchant_id")
+    p = sub.add_parser("invite-user", help="portal login for a merchant")
+    p.add_argument("merchant_id")
+    p.add_argument("email")
+    p.add_argument("name")
     args = parser.parse_args(argv)
 
     with get_sessionmaker()() as session:
@@ -84,6 +120,12 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "revoke-key":
             key = revoke_key(session, args.key_id)
             print(f"Revoked {key.id} ({key.key_prefix}...)")
+        elif args.command == "enable-live":
+            merchant = enable_live(session, args.merchant_id)
+            print(f"Live mode enabled for {merchant.id} ({merchant.name})")
+        elif args.command == "invite-user":
+            user, password = invite_user(session, args.merchant_id, args.email, args.name)
+            print(f"User {user.email}; temporary password (shown once): {password}")
 
 
 if __name__ == "__main__":
