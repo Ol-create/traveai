@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     env: str = "development"  # "production" turns on the safety checks in check_production()
     debug: bool = False
     database_url: str = "sqlite:///./traveai.db"
+    # Where recipients reach this server; used to build public tracking links.
+    public_base_url: str = "http://127.0.0.1:8000"
     # Comma-separated "key:merchant_id" pairs that `python -m traveai.seed` stores in the DB.
     seed_api_keys: str = ""
 

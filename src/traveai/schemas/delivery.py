@@ -3,11 +3,17 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from traveai.config import get_settings
 from traveai.domain.delivery_status import DeliveryStatus
 from traveai.domain.enums import FailureKind, Priority
 from traveai.models import Delivery, Event
 from traveai.schemas.location import Location
 from traveai.schemas.payload import Payload
+
+
+def tracking_url(d: Delivery) -> str:
+    return f"{get_settings().public_base_url.rstrip('/')}/t/{d.tracking_token}"
+
 
 E164 = r"^\+[1-9]\d{6,14}$"
 PIN = r"^\d{4,8}$"
@@ -87,6 +93,9 @@ class DeliveryOut(BaseModel):
     estimated_dropoff_at: datetime | None
     failure_reason: str | None
     proof: ProofOut | None
+    tracking_url: str = Field(
+        description="Public page for the recipient (no API key needed). Text or email it to them."
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -118,6 +127,7 @@ class DeliveryOut(BaseModel):
             estimated_dropoff_at=d.estimated_dropoff_at,
             failure_reason=d.failure_reason,
             proof=proof,
+            tracking_url=tracking_url(d),
             created_at=d.created_at,
             updated_at=d.updated_at,
         )

@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 from typing import Any
 
@@ -36,6 +37,11 @@ class Delivery(TimestampMixin, RouteMixin, PayloadMixin, Base):
     priority: Mapped[Priority] = mapped_column(str_enum(Priority), default=Priority.STANDARD)
     price_cents: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3), default="usd")
+    # Secret part of the public tracking link (/t/<token>) shared with the recipient.
+    # 192 random bits: unguessable. Kept retrievable so merchants can resend the link.
+    tracking_token: Mapped[str] = mapped_column(
+        String(64), unique=True, default=lambda: secrets.token_urlsafe(24)
+    )
     # The merchant's own order number, so they can match our deliveries to their orders.
     external_reference: Mapped[str | None] = mapped_column(String(64), index=True)
 

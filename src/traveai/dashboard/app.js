@@ -402,7 +402,9 @@ function createCard(d) {
     el("option", { value: "drop_zone_blocked" }, "Drop zone blocked"));
   refs.inject = el("button", { class: "ghost small", type: "button", onclick: () => act(d.id, "inject", refs.failKind.value) }, "Inject failure");
   refs.history = el("button", { class: "ghost small", type: "button", onclick: () => toggleTimeline(d.id) }, "Timeline");
-  refs.btns.append(refs.cancel, refs.pinInput, refs.handoff, refs.failKind, refs.inject, refs.history);
+  // The recipient's public page (what the merchant texts to their customer).
+  refs.customer = el("a", { class: "ghost small btn-link", target: "_blank", rel: "noopener noreferrer" }, "Customer page");
+  refs.btns.append(refs.cancel, refs.pinInput, refs.handoff, refs.failKind, refs.inject, refs.history, refs.customer);
 
   refs.root.append(el("div", { class: "top" }, refs.title, refs.chip), refs.meta, refs.pin, refs.btns, refs.timeline);
   return refs;
@@ -434,6 +436,7 @@ function updateCard(refs, d) {
   refs.handoff.hidden = refs.pinInput.hidden = d.phase !== "awaiting_handoff";
   if (pin && !refs.pinInput.value) refs.pinInput.value = pin;
   refs.failKind.hidden = refs.inject.hidden = !(live && state.me?.test_mode);
+  if (d.tracking_url && refs.customer.getAttribute("href") !== d.tracking_url) refs.customer.href = d.tracking_url;
 
   if (d.phase === "awaiting_handoff" && refs.lastPhase !== d.phase) {
     // The drone only hovers for a couple of minutes (much less in a sped-up simulation).

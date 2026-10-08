@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Track your delivery</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="/track-assets/styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <p class="from" id="from">Your delivery</p>
+      <h1 id="headline">Loading…</h1>
+      <p class="sub" id="subline"></p>
+    </header>
+
+    <section class="eta" id="eta-box" hidden>
+      <span class="eta-label">Arriving in</span>
+      <span class="eta-value" id="eta">–</span>
+    </section>
+
+    <ol class="steps" id="steps" aria-label="Progress">
+      <li>Confirmed</li>
+      <li>Picking up</li>
+      <li>In the air</li>
+      <li>Arriving</li>
+      <li>Delivered</li>
+    </ol>
+
+    <section class="card pin" id="pin-card" hidden>
+      <h2>Your drone is here</h2>
+      <p>Enter the PIN you were given to release your package.</p>
+      <form id="pin-form" autocomplete="off">
+        <label for="pin" class="sr-only">PIN</label>
+        <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+               placeholder="PIN" autocomplete="one-time-code" required>
+        <button type="submit">Release package</button>
+      </form>
+      <p class="pin-msg" id="pin-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card problem" id="problem" hidden></section>
+
+    <div class="map" id="map" aria-label="Map of your delivery"></div>
+
+    <section class="card proof" id="proof" hidden>
+      <h2>Delivered</h2>
+      <p id="proof-time"></p>
+      <img id="proof-img" alt="Photo taken by the drone at drop-off">
+    </section>
+
+    <footer class="foot">
+      <span id="updated" aria-live="off"></span>
+      <span>Drone delivery by TraveAI</span>
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/track-assets/app.js"></script>
+</body>
+</html>

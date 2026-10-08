@@ -143,6 +143,24 @@ curl -X POST http://127.0.0.1:8000/v1/webhook_endpoints \
 
 Set `TRAVEAI_WEBHOOKS_ENABLED=true` to run the sender inside the API server.
 
+## Customer tracking page
+
+Every delivery has a `tracking_url` (`<TRAVEAI_PUBLIC_BASE_URL>/t/<token>`) in API responses,
+webhooks and the dashboard. Text or email it to the recipient: no account or API key needed.
+
+- **The page** (phone-first): merchant name, progress steps, live ETA, the drone moving on a
+  map along the pickup → drop-off leg, a PIN box when a prescription drone is hovering, and the
+  proof photo once delivered. Delays and failures are explained in plain words.
+- **Privacy:** recipients see only what concerns them: no price, phone, order reference,
+  merchant notes, hub location or internal ids, and nothing about the contents of medical
+  orders. Failure reasons are mapped to fixed phrases, never passed through.
+- **Security:** the token is 192 random bits. Links stop working 24 h after the delivery
+  finishes (`410`). Public endpoints are rate limited per IP; PINs still lock after 5 wrong
+  tries. The page sends `Referrer-Policy: no-referrer` (the token never leaks to map tile
+  servers), `noindex`, `no-store` and a strict Content-Security-Policy.
+- **API** (no key): `GET /v1/public/tracking/{token}`, `POST .../handoff {"pin": ...}`,
+  `GET .../proof.svg`.
+
 ## Ops dashboard
 
 Open http://127.0.0.1:8000/ (redirects to `/dashboard/`) and paste a test key from

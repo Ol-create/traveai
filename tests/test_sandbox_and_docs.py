@@ -74,8 +74,8 @@ def test_every_operation_is_documented(spec):
 
 def test_authenticated_operations_document_errors(spec):
     for path, item in spec["paths"].items():
-        if path in ("/health", "/ready"):
-            continue
+        if path in ("/health", "/ready") or path.startswith("/v1/public/"):
+            continue  # public by design
         for op in item.values():
             assert "401" in op["responses"], f"{path} doesn't document 401"
             assert op.get("security"), f"{path} has no security requirement"

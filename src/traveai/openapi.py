@@ -86,6 +86,11 @@ TAGS = [
         "name": "webhooks",
         "description": "Signed event notifications pushed to your server, with retries.",
     },
+    {
+        "name": "public tracking",
+        "description": "For recipients, no API key: the delivery's `tracking_url` token is the "
+        "credential. Status, ETA, live drone position, and PIN entry for prescriptions.",
+    },
     {"name": "map", "description": "Layers for live maps (used by the ops dashboard)."},
     {"name": "merchants", "description": "Your account."},
     {
@@ -113,6 +118,7 @@ def errors(*codes: int) -> dict[int | str, dict[str, Any]]:
         403: "Not allowed for this key (e.g. needs a test key)",
         404: "Not found (or belongs to another merchant)",
         409: "Not possible in the current state",
+        410: "Link expired",
         422: "Invalid input",
         429: "Rate limit exceeded (see Retry-After)",
     }

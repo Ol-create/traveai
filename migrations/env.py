@@ -32,14 +32,21 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    engine = make_engine(get_url())
+    url = get_url()
+    # On SQLite, batch mode rebuilds a changed table (copy, drop, rename). With foreign keys
+    # enforced, dropping a table that other rows point at fails, so migrate with enforcement
+    # off and check integrity afterwards. (Postgres alters tables in place; unaffected.)
+    engine = make_engine(url, enforce_foreign_keys=False)
     with engine.connect() as connection:
-        # Batch mode lets ALTER TABLE work on SQLite.
         context.configure(
             connection=connection, target_metadata=target_metadata, render_as_batch=True
         )
         with context.begin_transaction():
             context.run_migrations()
+        if url.startswith("sqlite"):
+            broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if broken:
+                raise RuntimeError(f"Migration left broken foreign keys: {broken[:5]}")
     engine.dispose()
 
 

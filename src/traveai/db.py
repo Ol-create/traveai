@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from traveai.config import get_settings
 
 
-def make_engine(url: str, **kwargs) -> Engine:
+def make_engine(url: str, *, enforce_foreign_keys: bool = True, **kwargs) -> Engine:
     is_sqlite = url.startswith("sqlite")
     if is_sqlite:
         kwargs.setdefault("connect_args", {"check_same_thread": False})
     engine = create_engine(url, **kwargs)
-    if is_sqlite:
+    if is_sqlite and enforce_foreign_keys:
         # SQLite ignores foreign keys unless asked per connection.
         @event.listens_for(engine, "connect")
         def _enable_foreign_keys(dbapi_conn, _record) -> None:

@@ -1,5 +1,4 @@
 from datetime import datetime
-from html import escape
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -14,6 +13,7 @@ from traveai.domain.delivery_status import DeliveryStatus
 from traveai.errors import ApiError
 from traveai.models import Delivery
 from traveai.openapi import errors
+from traveai.proof import proof_svg
 from traveai.schemas.delivery import (
     DeliveryCancel,
     DeliveryCreate,
@@ -195,20 +195,4 @@ def proof_photo(delivery_id: str, auth: CurrentAuth, session: SessionDep) -> Res
     d = get_owned_delivery(session, auth, delivery_id)
     if d.delivered_at is None:
         raise ApiError(status.HTTP_404_NOT_FOUND, "no_proof", "Delivery has no proof yet")
-    lines = [
-        "SIMULATED DROP-OFF PHOTO",
-        d.id,
-        f"{d.delivered_lat:.5f}, {d.delivered_lng:.5f}",
-        d.delivered_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
-        "PIN verified" if d.pin_required else "No PIN required",
-    ]
-    text = "".join(
-        f'<text x="20" y="{50 + i * 34}" font-size="{22 if i == 0 else 18}">{escape(line)}</text>'
-        for i, line in enumerate(lines)
-    )
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240" '
-        'font-family="monospace"><rect width="100%" height="100%" fill="#e8efe6"/>'
-        f"{text}</svg>"
-    )
-    return Response(svg, media_type="image/svg+xml")
+    return Response(proof_svg(d), media_type="image/svg+xml")

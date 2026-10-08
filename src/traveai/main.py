@@ -16,6 +16,7 @@ from traveai.api import (
     health,
     map,
     merchants,
+    public,
     quotes,
     testing,
     tracking,
@@ -27,6 +28,7 @@ from traveai.openapi import DESCRIPTION, TAGS, operation_id
 from traveai.workers import SIMULATOR, WEBHOOKS
 
 DASHBOARD_DIR = Path(__file__).parent / "dashboard"
+TRACKING_PAGE_DIR = Path(__file__).parent / "tracking_page"
 _SAFE_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
 log = logging.getLogger("traveai")
 
@@ -95,6 +97,10 @@ def create_app() -> FastAPI:
 
     # Ops dashboard: a static page that calls the API above with the user's key.
     app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+
+    # Public tracking page for recipients (/t/<token>) and its assets.
+    app.include_router(public.router)
+    app.mount("/track-assets", StaticFiles(directory=TRACKING_PAGE_DIR), name="track-assets")
 
     @app.get("/", include_in_schema=False)
     def root() -> RedirectResponse:

@@ -7,6 +7,7 @@
       "runtimeArgs": ["-m", "uvicorn", "traveai.main:app", "--port", "8770"],
       "port": 8770,
       "env": {
+        "TRAVEAI_PUBLIC_BASE_URL": "http://localhost:8770",
         "TRAVEAI_SIM_ENABLED": "true",
         "TRAVEAI_SIM_SPEED": "5",
         "TRAVEAI_WEBHOOKS_ENABLED": "true",

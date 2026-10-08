@@ -16,6 +16,7 @@ from traveai.domain.delivery_status import TERMINAL_STATUSES
 from traveai.models import Delivery, DropZone, Vehicle
 from traveai.openapi import errors
 from traveai.rules.airspace import AirspaceMap
+from traveai.schemas.delivery import tracking_url
 from traveai.sim.simulator import active_mission
 from traveai.sim.tracking import tracking_snapshot
 
@@ -118,6 +119,7 @@ def live(auth: CurrentAuth, session: SessionDep, now: NowDep) -> dict[str, Any]:
                 "pickup": [d.pickup_lat, d.pickup_lng],
                 "dropoff": [d.dropoff_lat, d.dropoff_lng],
                 "pin_required": d.pin_required,
+                "tracking_url": tracking_url(d),
                 "failure_reason": d.failure_reason,
                 "phase": snap.phase.value if snap.phase else None,
                 "eta_seconds": snap.eta_seconds,
