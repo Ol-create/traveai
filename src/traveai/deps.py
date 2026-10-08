@@ -14,8 +14,8 @@ from traveai.models.base import utcnow
 from traveai.rules.airspace import AirspaceMap, default_airspace
 from traveai.rules.config import RulesConfig
 from traveai.rules.weather import SimulatedWeatherProvider, WeatherProvider
-from traveai.sim.runner import build_simulator
 from traveai.sim.simulator import Simulator
+from traveai.workers import build_simulator
 
 
 def get_now() -> datetime:

@@ -1,7 +1,9 @@
+from datetime import timedelta
+
 import pytest
 
-from traveai.config import Settings, get_settings
-from traveai.sim.runner import control
+from traveai.config import Settings
+from traveai.workers import SIMULATOR, try_acquire
 
 
 @pytest.fixture
@@ -9,39 +11,37 @@ def h(api_key):
     return {"Authorization": f"Bearer {api_key}"}
 
 
-@pytest.fixture(autouse=True)
-def reset_control():
-    saved = (control.running, control.speed)
-    yield
-    control.running, control.speed = saved
-
-
-def with_settings(client, **overrides):
-    client.app.dependency_overrides[get_settings] = lambda: Settings(_env_file=None, **overrides)
+def use_settings(monkeypatch, **overrides):
+    settings = Settings(_env_file=None, **overrides)
+    monkeypatch.setattr("traveai.api.testing.get_settings", lambda: settings)
 
 
 # --- sandbox -------------------------------------------------------------------------------
 
 
-def test_simulator_status(client, h, monkeypatch):
-    monkeypatch.setattr("traveai.api.testing.get_settings", lambda: Settings(_env_file=None))
+def test_simulator_status_follows_the_worker_lease(client, h, session, world, monkeypatch):
+    use_settings(monkeypatch)
     body = client.get("/v1/test/simulator", headers=h).json()
-    assert body["running"] is False  # tests don't start the background loop
-    assert body["controls_enabled"] is False
+    assert body["running"] is False and body["controls_enabled"] is False
+
+    try_acquire(session, SIMULATOR, "worker-1", world.now)  # a simulator worker checks in
+    assert client.get("/v1/test/simulator", headers=h).json()["running"] is True
+
+    world.now += timedelta(seconds=30)  # ...and then goes silent
+    assert client.get("/v1/test/simulator", headers=h).json()["running"] is False
 
 
 def test_change_speed_when_sandbox_controls_on(client, h, monkeypatch):
-    monkeypatch.setattr(
-        "traveai.api.testing.get_settings", lambda: Settings(_env_file=None, sandbox_controls=True)
-    )
+    use_settings(monkeypatch, sandbox_controls=True)
     r = client.patch("/v1/test/simulator", json={"speed": 25}, headers=h)
     assert r.status_code == 200 and r.json()["speed"] == 25
-    assert control.speed == 25
+    # Stored in the database, so separate worker processes see it too.
+    assert client.get("/v1/test/simulator", headers=h).json()["speed"] == 25
     assert client.patch("/v1/test/simulator", json={"speed": 500}, headers=h).status_code == 422
 
 
 def test_speed_change_refused_when_controls_off(client, h, monkeypatch):
-    monkeypatch.setattr("traveai.api.testing.get_settings", lambda: Settings(_env_file=None))
+    use_settings(monkeypatch)
     r = client.patch("/v1/test/simulator", json={"speed": 25}, headers=h)
     assert r.status_code == 403
     assert r.json()["detail"]["code"] == "sandbox_controls_disabled"
@@ -74,7 +74,7 @@ def test_every_operation_is_documented(spec):
 
 def test_authenticated_operations_document_errors(spec):
     for path, item in spec["paths"].items():
-        if path == "/health":
+        if path in ("/health", "/ready"):
             continue
         for op in item.values():
             assert "401" in op["responses"], f"{path} doesn't document 401"

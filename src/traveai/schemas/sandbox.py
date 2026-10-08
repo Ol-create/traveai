@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field
 
-from traveai.sim.runner import MAX_SPEED, MIN_SPEED
+from traveai.workers import MAX_SPEED, MIN_SPEED
 
 
 class SimulatorStatus(BaseModel):
-    running: bool = Field(description="False when this server runs without the simulator.")
+    running: bool = Field(description="Whether a simulator worker is active (holds its lease).")
     speed: float = Field(description="Simulated seconds per real second.")
     failure_rate: float = Field(description="Chance each flight gets a random failure.")
     night_operations: bool

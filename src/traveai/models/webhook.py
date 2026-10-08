@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import JSON, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from traveai.crypto import decrypt, encrypt
 from traveai.ids import new_id
 from traveai.models.base import Base, TimestampMixin, UTCDateTime, str_enum, utcnow
 
@@ -17,8 +18,9 @@ class WebhookEndpoint(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String(40), primary_key=True, default=lambda: new_id("whe"))
     merchant_id: Mapped[str] = mapped_column(ForeignKey("merchants.id"), index=True)
     url: Mapped[str] = mapped_column(String(500))
-    # Needed in plain form to sign each request. Production: encrypt at rest (KMS).
-    secret: Mapped[str] = mapped_column(String(80))
+    # Needed in plain form to sign each request, so it is encrypted (not hashed) at rest.
+    # Use the `secret` property; it encrypts and decrypts with TRAVEAI_SECRET_KEY.
+    secret_encrypted: Mapped[str] = mapped_column(String(255))
     # Event types or patterns: ["*"], ["delivery.*"], ["delivery.delivered", ...]
     enabled_events: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["*"])
     description: Mapped[str | None] = mapped_column(String(200))
@@ -28,6 +30,19 @@ class WebhookEndpoint(TimestampMixin, Base):
     messages: Mapped[list["WebhookMessage"]] = relationship(
         back_populates="endpoint", cascade="all, delete-orphan"
     )
+
+    def __init__(self, *, secret: str | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if secret is not None:
+            self.secret = secret
+
+    @property
+    def secret(self) -> str:
+        return decrypt(self.secret_encrypted)
+
+    @secret.setter
+    def secret(self, value: str) -> None:
+        self.secret_encrypted = encrypt(value)
 
 
 class WebhookMessageStatus(StrEnum):

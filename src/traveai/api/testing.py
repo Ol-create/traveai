@@ -24,9 +24,9 @@ from traveai.rules.codes import Requirement
 from traveai.schemas.delivery import AdvanceRequest, DeliveryOut, InjectFailureRequest
 from traveai.schemas.sandbox import SimulatorStatus, SimulatorUpdate
 from traveai.services.deliveries import PinRejectedError, complete_delivery
-from traveai.sim.runner import control as sim_control
+from traveai.workers import SIMULATOR, SPEED_KEY, lease_alive, set_runtime, sim_speed
 
-router = APIRouter(prefix="/v1/test", tags=["test mode"], responses=errors(401, 403))
+router = APIRouter(prefix="/v1/test", tags=["test mode"], responses=errors(401, 429, 403))
 
 S = DeliveryStatus
 NEXT_STEP = {
@@ -133,14 +133,23 @@ def _require_test_mode(auth: AuthContext) -> None:
 
 
 @router.get("/simulator", response_model=SimulatorStatus, summary="Simulator status")
-def simulator_status(auth: CurrentAuth) -> SimulatorStatus:
-    """Is the flight simulator running here, and how fast?"""
+def simulator_status(
+    auth: CurrentAuth,
+    session: Annotated[Session, Depends(get_session)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> SimulatorStatus:
+    """Is a flight simulator worker running, and how fast?"""
     _require_test_mode(auth)
-    return _status()
+    return _status(session, now)
 
 
 @router.patch("/simulator", response_model=SimulatorStatus, summary="Set simulation speed")
-def update_simulator(body: SimulatorUpdate, auth: CurrentAuth) -> SimulatorStatus:
+def update_simulator(
+    body: SimulatorUpdate,
+    auth: CurrentAuth,
+    session: Annotated[Session, Depends(get_session)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> SimulatorStatus:
     """Change the simulation speed (1-100x) without a restart. Sandbox servers only
     (`TRAVEAI_SANDBOX_CONTROLS=true`): the fleet is shared by everyone on the server."""
     _require_test_mode(auth)
@@ -150,15 +159,15 @@ def update_simulator(body: SimulatorUpdate, auth: CurrentAuth) -> SimulatorStatu
             "sandbox_controls_disabled",
             "Simulator controls are off on this server",
         )
-    sim_control.speed = body.speed
-    return _status()
+    set_runtime(session, SPEED_KEY, body.speed)  # workers pick it up on their next tick
+    return _status(session, now)
 
 
-def _status() -> SimulatorStatus:
+def _status(session: Session, now: datetime) -> SimulatorStatus:
     settings = get_settings()
     return SimulatorStatus(
-        running=sim_control.running,
-        speed=sim_control.speed,
+        running=lease_alive(session, SIMULATOR, now),
+        speed=sim_speed(session, settings),
         failure_rate=settings.sim_failure_rate,
         night_operations=settings.allow_night_operations,
         controls_enabled=settings.sandbox_controls,

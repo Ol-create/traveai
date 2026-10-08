@@ -187,6 +187,29 @@ dashboard alerts you when a drone starts waiting.
 | Step without the simulator | `POST /v1/test/deliveries/{id}/advance` |
 | Fly after dark | `TRAVEAI_ALLOW_NIGHT_OPERATIONS=true` |
 
+## Production deployment
+
+`docker compose up --build -d` starts a production-shaped stack (see `docker-compose.yml`):
+Postgres, Redis, a one-shot `alembic upgrade head`, the API, and two copies of each worker.
+
+```bash
+export TRAVEAI_SECRET_KEY=$(python -m traveai.crypto new-key)   # store it in your secrets manager
+export POSTGRES_PASSWORD=...
+docker compose up --build -d
+docker compose run --rm api python -m traveai.admin create-merchant "Uptown Pharmacy" --category pharmacy
+```
+
+| Concern | How it's handled |
+|---|---|
+| Database | Postgres via `TRAVEAI_DATABASE_URL=postgresql+psycopg://...` (`pip install -e ".[postgres]"`). SQLite stays the zero-setup dev default. Run the tests on Postgres with `TRAVEAI_TEST_DATABASE_URL=...`. |
+| Background work | `python -m traveai.worker simulator` and `... webhooks`, separate from the API. Run several: a lease in the database makes exactly one active; a standby takes over within ~10 s if it dies. |
+| Secrets at rest | Webhook signing secrets are Fernet-encrypted with `TRAVEAI_SECRET_KEY` (comma-separated, newest first). Rotate: add a new key first, `python -m traveai.crypto rotate`, drop the old key. API keys and PINs are hashed. |
+| Rate limits | `TRAVEAI_RATE_LIMIT_PER_MINUTE` per API key (default 600). `429 rate_limited` with `Retry-After`; `X-RateLimit-*` headers on every response. Set `TRAVEAI_REDIS_URL` so several API servers share the count. |
+| Health | `GET /health` (process up), `GET /ready` (database reachable, which workers are active; 503 if the DB is down). |
+| Errors | Every response has `X-Request-Id` (yours is echoed). Unhandled errors return `500 internal_error` with that id and no internals; the full traceback is logged with the id. |
+| Unsafe config | With `TRAVEAI_ENV=production` the API and workers refuse to start without a secret key, on SQLite, with debug, sandbox controls or demo seed keys. |
+| Onboarding | `python -m traveai.admin create-merchant / create-key [--live] / list-keys / revoke-key`. |
+
 ## Test and lint
 
 ```bash
@@ -203,6 +226,11 @@ src/traveai/
   db.py          database engine and per-request sessions
   auth.py        API-key authentication (DB lookup by key hash)
   seed.py        demo data for local development
+  admin.py       operator CLI: onboard merchants, manage API keys
+  worker.py      run a background worker process (simulator / webhooks)
+  workers.py     worker jobs and leader leases
+  crypto.py      encryption at rest for webhook secrets
+  ratelimit.py   per-key rate limits (memory or Redis)
   api/           route modules
   domain/        enums and the delivery status state machine
   schemas/       validated value objects (Payload, Location)

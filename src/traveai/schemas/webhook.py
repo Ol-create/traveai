@@ -26,7 +26,10 @@ class WebhookEndpointCreate(BaseModel):
         }
     }
 
-    url: AnyHttpUrl = Field(description="HTTPS URL (http://localhost is fine with test keys).")
+    url: AnyHttpUrl = Field(
+        max_length=500,  # column size (Postgres enforces it)
+        description="HTTPS URL (http://localhost is fine with test keys).",
+    )
     enabled_events: list[str] = Field(
         default_factory=lambda: ["*"],
         min_length=1,

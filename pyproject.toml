@@ -17,9 +17,12 @@ dependencies = [
     "alembic>=1.13",
     "shapely>=2.0",
     "httpx>=0.27",  # webhook sending
+    "cryptography>=42",  # webhook secrets encrypted at rest
 ]
 
 [project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2"]
+redis = ["redis>=5"]  # shared rate limits across API servers
 dev = [
     "pytest>=8.0",
     "httpx2>=2.13",  # required by Starlette's TestClient

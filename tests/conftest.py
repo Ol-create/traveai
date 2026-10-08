@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterator
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -44,10 +45,20 @@ class World:
         return self.weather
 
 
+# Run the suite on Postgres (or any database) with e.g.
+#   TRAVEAI_TEST_DATABASE_URL=postgresql+psycopg://user@localhost/traveai_test pytest
+# Its tables are dropped and recreated for every test. Default: in-memory SQLite.
+TEST_DATABASE_URL = os.environ.get("TRAVEAI_TEST_DATABASE_URL")
+
+
 @pytest.fixture
 def session() -> Iterator[Session]:
-    """Fresh in-memory database per test."""
-    engine = make_engine("sqlite://", poolclass=StaticPool)
+    """Fresh, empty database per test."""
+    if TEST_DATABASE_URL:
+        engine = make_engine(TEST_DATABASE_URL)
+        Base.metadata.drop_all(engine)
+    else:
+        engine = make_engine("sqlite://", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     with sessionmaker(bind=engine, expire_on_commit=False)() as s:
         yield s

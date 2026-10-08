@@ -20,7 +20,7 @@ from traveai.schemas.webhook import (
 from traveai.webhooks.sender import UnsafeUrlError, check_url
 from traveai.webhooks.signing import generate_secret
 
-router = APIRouter(prefix="/v1/webhook_endpoints", tags=["webhooks"], responses=errors(401))
+router = APIRouter(prefix="/v1/webhook_endpoints", tags=["webhooks"], responses=errors(401, 429))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 MAX_ENDPOINTS = 10

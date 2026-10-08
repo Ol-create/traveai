@@ -67,7 +67,9 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_events_webhooks_enqueued'), ['webhooks_enqueued'], unique=False)
 
     # Events that happened before webhooks existed must not be sent now.
-    op.execute("UPDATE events SET webhooks_enqueued = 1")
+    # Portable boolean (Postgres rejects "= 1" for a boolean column).
+    events = sa.table("events", sa.column("webhooks_enqueued", sa.Boolean))
+    op.execute(events.update().values(webhooks_enqueued=True))
 
     # ### end Alembic commands ###
 

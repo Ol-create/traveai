@@ -19,7 +19,7 @@ from traveai.rules.airspace import AirspaceMap
 from traveai.sim.simulator import active_mission
 from traveai.sim.tracking import tracking_snapshot
 
-router = APIRouter(prefix="/v1/map", tags=["map"], responses=errors(401))
+router = APIRouter(prefix="/v1/map", tags=["map"], responses=errors(401, 429))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 NowDep = Annotated[datetime, Depends(get_now)]

@@ -18,7 +18,7 @@ from traveai.openapi import errors
 from traveai.schemas.tracking import Tracking
 from traveai.sim.tracking import tracking_snapshot
 
-router = APIRouter(prefix="/v1/deliveries", tags=["tracking"], responses=errors(401, 404))
+router = APIRouter(prefix="/v1/deliveries", tags=["tracking"], responses=errors(401, 429, 404))
 
 HEARTBEAT_EVERY_S = 15.0
 STATUS_EVENT_TYPES = {event_type_for(s) for s in DeliveryStatus}

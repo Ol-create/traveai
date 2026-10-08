@@ -1,0 +1,79 @@
+# Production-shaped stack: Postgres, Redis, migrations, API, and the two workers.
+#
+#   export TRAVEAI_SECRET_KEY=$(python -m traveai.crypto new-key)   # keep it safe
+#   export POSTGRES_PASSWORD=change-me
+#   docker compose up --build -d
+#   docker compose run --rm api python -m traveai.admin create-merchant "Demo" --category pharmacy
+#
+# API on http://localhost:8000 (docs at /docs, readiness at /ready).
+
+x-app: &app
+  build: .
+  restart: unless-stopped
+  environment:
+    TRAVEAI_ENV: production
+    TRAVEAI_DATABASE_URL: postgresql+psycopg://traveai:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/traveai
+    TRAVEAI_SECRET_KEY: ${TRAVEAI_SECRET_KEY:?set TRAVEAI_SECRET_KEY}
+    TRAVEAI_REDIS_URL: redis://redis:6379/0
+    TRAVEAI_RATE_LIMIT_PER_MINUTE: "600"
+    TRAVEAI_SIM_SPEED: "1"
+    TRAVEAI_SIM_FAILURE_RATE: "0.02"
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_started
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: traveai
+      POSTGRES_DB: traveai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traveai -d traveai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Two of each worker: one active, one standby that takes over within ~10 s.
+  simulator:
+    <<: *app
+    command: ["python", "-m", "traveai.worker", "simulator"]
+    deploy:
+      replicas: 2
+
+  webhooks:
+    <<: *app
+    command: ["python", "-m", "traveai.worker", "webhooks"]
+    deploy:
+      replicas: 2
+
+volumes:
+  pgdata:

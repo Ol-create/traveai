@@ -5,7 +5,7 @@ from traveai.auth import CurrentAuth
 from traveai.domain.enums import MerchantCategory
 from traveai.openapi import errors
 
-router = APIRouter(prefix="/v1", tags=["merchants"], responses=errors(401))
+router = APIRouter(prefix="/v1", tags=["merchants"], responses=errors(401, 429))
 
 
 class MeResponse(BaseModel):

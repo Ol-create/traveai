@@ -1,10 +1,13 @@
 import asyncio
 import contextlib
+import logging
+import re
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from traveai import __version__
@@ -18,24 +21,27 @@ from traveai.api import (
     tracking,
     webhooks,
 )
+from traveai.background import run_in_process
 from traveai.config import get_settings
 from traveai.openapi import DESCRIPTION, TAGS, operation_id
-from traveai.sim.runner import run_forever as run_simulator
-from traveai.webhooks.runner import run_forever as run_webhooks
+from traveai.workers import SIMULATOR, WEBHOOKS
 
 DASHBOARD_DIR = Path(__file__).parent / "dashboard"
+_SAFE_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
+log = logging.getLogger("traveai")
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    settings.check_production()  # refuse to start with unsafe production settings
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         tasks = []
         if settings.sim_enabled:
-            tasks.append(asyncio.create_task(run_simulator(settings)))
+            tasks.append(asyncio.create_task(run_in_process(SIMULATOR, settings)))
         if settings.webhooks_enabled:
-            tasks.append(asyncio.create_task(run_webhooks()))
+            tasks.append(asyncio.create_task(run_in_process(WEBHOOKS, settings)))
         yield
         for task in tasks:
             task.cancel()
@@ -53,6 +59,32 @@ def create_app() -> FastAPI:
         generate_unique_id_function=operation_id,
         debug=settings.debug,
     )
+
+    @app.middleware("http")
+    async def request_id_and_errors(request: Request, call_next):
+        # Echo a caller's X-Request-Id (sanitised) or make one; it ties logs to responses.
+        incoming = request.headers.get("X-Request-Id", "")
+        rid = incoming if _SAFE_ID.fullmatch(incoming) else uuid.uuid4().hex
+        try:
+            response = await call_next(request)
+        except Exception:
+            log.exception(
+                "Unhandled error (request_id=%s %s %s)", rid, request.method, request.url.path
+            )
+            response = JSONResponse(
+                {
+                    "detail": {
+                        "code": "internal_error",
+                        "message": "Something went wrong on our side; quote the request_id "
+                        "if you contact support",
+                        "request_id": rid,
+                    }
+                },
+                status_code=500,
+            )
+        response.headers["X-Request-Id"] = rid
+        return response
+
     app.include_router(health.router)
     app.include_router(merchants.router)
     app.include_router(quotes.router)

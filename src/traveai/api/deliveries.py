@@ -32,7 +32,7 @@ from traveai.services.deliveries import (
 )
 from traveai.sim.simulator import Simulator
 
-router = APIRouter(prefix="/v1/deliveries", tags=["deliveries"], responses=errors(401, 404))
+router = APIRouter(prefix="/v1/deliveries", tags=["deliveries"], responses=errors(401, 429, 404))
 
 SessionDep = Annotated[Session, Depends(get_session)]
 NowDep = Annotated[datetime, Depends(get_now)]

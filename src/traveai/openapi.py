@@ -114,6 +114,7 @@ def errors(*codes: int) -> dict[int | str, dict[str, Any]]:
         404: "Not found (or belongs to another merchant)",
         409: "Not possible in the current state",
         422: "Invalid input",
+        429: "Rate limit exceeded (see Retry-After)",
     }
     return {c: {"model": ErrorResponse, "description": text[c]} for c in codes}
 

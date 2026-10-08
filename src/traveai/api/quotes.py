@@ -16,7 +16,7 @@ from traveai.rules.weather import WeatherProvider
 from traveai.schemas.quote import QuoteCreate, QuoteOut
 from traveai.services.quoting import QuoteContext, QuoteRequest, create_quote
 
-router = APIRouter(prefix="/v1/quotes", tags=["quotes"], responses=errors(401, 422))
+router = APIRouter(prefix="/v1/quotes", tags=["quotes"], responses=errors(401, 429, 422))
 
 MAX_SCHEDULE_AHEAD = timedelta(days=7)
 CLOCK_SKEW = timedelta(minutes=1)
