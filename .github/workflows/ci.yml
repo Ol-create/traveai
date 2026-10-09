@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Lint, then the full test suite on Postgres (production's database) and the migrations
+  # applied to a real Postgres server.
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: traveai
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: traveai_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U traveai -d traveai_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PG_URL: postgresql+psycopg://traveai:ci-only-password@localhost:5432/traveai_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev,postgres,redis]"
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Migrations on Postgres (upgrade, drift check, downgrade, upgrade)
+        env:
+          TRAVEAI_DATABASE_URL: ${{ env.PG_URL }}
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+          alembic downgrade base
+      - name: Tests on Postgres
+        env:
+          TRAVEAI_TEST_DATABASE_URL: ${{ env.PG_URL }}
+        run: pytest -q
+
+  sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  # Build the image and bring up the whole production-shaped stack, then use it.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate throwaway secrets
+        run: |
+          # Fernet key = url-safe base64 of 32 random bytes
+          echo "TRAVEAI_SECRET_KEY=$(openssl rand -base64 32 | tr '+/' '-_')" >> "$GITHUB_ENV"
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+      - name: docker compose up --build (waits for health checks)
+        run: docker compose up --build --detach --wait --wait-timeout 180
+      - name: Smoke test the running stack
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8000/health
+          # Workers report in via their leases within a few seconds.
+          for i in $(seq 1 20); do
+            ready=$(curl -fsS http://localhost:8000/ready)
+            echo "$ready" | grep -q '"simulator":"active"' && echo "$ready" | grep -q '"webhooks":"active"' && break
+            sleep 2
+          done
+          echo "ready: $ready"
+          echo "$ready" | grep -q '"simulator":"active"'
+
+          out=$(docker compose exec -T api python -m traveai.admin create-merchant "CI Pharmacy" --category pharmacy)
+          key=$(echo "$out" | sed -n 's/^Test key (shown once): //p')
+          test -n "$key"
+          auth="Authorization: Bearer $key"
+
+          curl -fsS -H "$auth" http://localhost:8000/v1/me
+          quote=$(curl -fsS -H "$auth" -H "Content-Type: application/json" \
+            -d '{"pickup":{"lat":32.7843,"lng":-96.7837},"dropoff":{"lat":32.8120,"lng":-96.7520},
+                 "payload":{"category":"food","weight_kg":1.2,"length_cm":30,"width_cm":25,"height_cm":15}}' \
+            http://localhost:8000/v1/quotes)
+          echo "quote: $quote"
+          # Quotes can be infeasible at night in Dallas (no night flying in production config);
+          # booking is only attempted when the quote is feasible.
+          if echo "$quote" | grep -q '"feasible":true'; then
+            quote_id=$(echo "$quote" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+            curl -fsS -H "$auth" -H "Content-Type: application/json" \
+              -d "{\"quote_id\":\"$quote_id\"}" http://localhost:8000/v1/deliveries
+          fi
+          # Production safety: demo seed keys and sandbox controls must be off.
+          curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "$auth" -H "Content-Type: application/json" \
+            -d '{"speed":10}' http://localhost:8000/v1/test/simulator | grep -q 403
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes
